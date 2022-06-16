@@ -18,6 +18,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -40,21 +41,56 @@ tracee_main(char **argv)
 	FATAL_ERROR; // exec shouldn't return.
 }
 
-int
-is_open_syscall(int syscall)
+/*
+    addr is an address pointing to the tracee process' address space, thus we need to copy it.
+*/
+char *
+read_path(char *addr, pid_t pid)
 {
-#define is(what) syscall == SYS_##what
-	return is(open) || is(openat) || is(creat);
-#undef is
+    long *ptr = (long *)malloc(10000 * sizeof(char));
+    size_t size = 0;
+    size_t i;
+    
+    do {
+        ptr[size] = ptrace(PTRACE_PEEKDATA, pid, addr + size * sizeof(long), NULL);
+        
+        for(i = size * sizeof(long); i < (size + 1) * sizeof(long); ++i) {
+            if(((char *)ptr)[i] == '\0') {
+                goto exit_loop;
+            }
+        }
+        
+        size = size + 1;
+    } while(1);
+
+exit_loop:
+    return (char *)realloc(ptr, i + 1);
 }
 
 void
-tracer_main(pid_t pid)
+handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry, const struct ptrace_syscall_info *exit, files *buffer)
+{
+    if(exit->exit.rval < 0) {
+        return; // return on syscall failure
+    }
+
+    int syscall = entry->entry.nr;
+
+    if(syscall == SYS_open || syscall == SYS_creat) {
+        puts(read_path((char *)entry->entry.args[0], pid));
+    } else if(syscall == SYS_openat) {
+        puts(read_path((char *)entry->entry.args[1], pid));
+    }
+}
+
+void
+tracer_main(pid_t pid, files *buffer)
 {
 	waitpid(pid, NULL, 0);
 	ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD);
 
-	struct ptrace_syscall_info info;
+	struct ptrace_syscall_info entry;
+    struct ptrace_syscall_info exit;
 	while(1) {
 		if(ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0) {
 			FATAL_ERROR;
@@ -63,12 +99,8 @@ tracer_main(pid_t pid)
 			FATAL_ERROR;
 		}
 
-		if(ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *)sizeof(info), &info) == -1) {
+		if(ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *)sizeof(entry), &entry) == -1) {
 			FATAL_ERROR;
-		}
-
-		if(is_open_syscall(info.entry.nr)) {
-			printf("%lld\n", info.entry.nr);
 		}
 
 		if(ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0) {
@@ -78,13 +110,15 @@ tracer_main(pid_t pid)
 			FATAL_ERROR;
 		}
 
-		if(ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *)sizeof(info), &info) == -1) {
+		if(ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *)sizeof(exit), &exit) == -1) {
 			if(errno == ESRCH) {
                 // TODO report tracee's return value "info.exit.rval"
 				break;
 			}
 			FATAL_ERROR;
 		}
+
+        handle_syscall(pid, &entry, &exit, buffer);
 	}
 }
 
@@ -100,7 +134,7 @@ get_files_used(char **argv, files *buffer)
 			tracee_main(argv + 1);
 	}
 	
-	tracer_main(pid);
+	tracer_main(pid, buffer);
 }
 
 void

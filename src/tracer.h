@@ -20,16 +20,20 @@
 #pragma once
 #include <sys/types.h>
 
-typedef struct files {} files; //TODO
+typedef struct files {
+    size_t size;
+    size_t capacity;
+    char **arr;
+} files; //TODO
+
+void
+free_files(files *buffer);
 
 void
 tracee_main(char **argv);
 
 void
-tracer_main(pid_t pid);
+tracer_main(pid_t pid, files *buffer);
 
 int
 get_files_used(char **argv, files *buffer);
-
-void
-free_files(files *buffer);
