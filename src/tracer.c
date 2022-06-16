@@ -71,6 +71,11 @@ read_str_from_process(char *addr, pid_t pid)
         buffer[size] = ptrace(PTRACE_PEEKDATA, pid, addr + size * sizeof(long), NULL);
     } while(!has_end_of_str((char *)(buffer + size), sizeof(long)) && ++size != MAXPATHLEN);
 
+    if(size == MAXPATHLEN) {
+        fprintf(stderr, "maximum file path size of %ld exceeded", MAXPATHLEN);
+        _exit(1);
+    }
+
     return (char *)buffer;
 }
 
