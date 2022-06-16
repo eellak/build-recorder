@@ -42,29 +42,36 @@ tracee_main(char **argv)
 }
 
 /*
+    Checks for \0 at last *size* bytes.
+*/
+int
+has_end_of_str(char *buffer, size_t size)
+{
+    for(size_t i = 0; i < size; ++i) {
+        if(buffer[i] == '\0') {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+#define MAXPATHLEN 10240 / sizeof(long)
+
+/*
     addr is an address pointing to the tracee process' address space, thus we need to copy it.
 */
 char *
 read_path(char *addr, pid_t pid)
 {
-    long *ptr = (long *)malloc(10000 * sizeof(char));
+    static long buffer[MAXPATHLEN];
     size_t size = 0;
-    size_t i;
     
     do {
-        ptr[size] = ptrace(PTRACE_PEEKDATA, pid, addr + size * sizeof(long), NULL);
-        
-        for(i = size * sizeof(long); i < (size + 1) * sizeof(long); ++i) {
-            if(((char *)ptr)[i] == '\0') {
-                goto exit_loop;
-            }
-        }
-        
-        size = size + 1;
-    } while(1);
+        buffer[size] = ptrace(PTRACE_PEEKDATA, pid, addr + size * sizeof(long), NULL);
+    } while(!has_end_of_str((char *)(buffer + size), sizeof(long)) && ++size != MAXPATHLEN);
 
-exit_loop:
-    return (char *)realloc(ptr, i + 1);
+    return (char *)buffer;
 }
 
 void
