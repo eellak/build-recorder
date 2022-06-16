@@ -62,7 +62,7 @@ has_end_of_str(char *buffer, size_t size)
     addr is an address pointing to the tracee process' address space, thus we need to copy it.
 */
 char *
-read_path(char *addr, pid_t pid)
+read_str_from_process(char *addr, pid_t pid)
 {
     static long buffer[MAXPATHLEN];
     size_t size = 0;
@@ -84,9 +84,9 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry, const struct 
     int syscall = entry->entry.nr;
 
     if(syscall == SYS_open || syscall == SYS_creat) {
-        puts(read_path((char *)entry->entry.args[0], pid));
+        puts(read_str_from_process((char *)entry->entry.args[0], pid));
     } else if(syscall == SYS_openat) {
-        puts(read_path((char *)entry->entry.args[1], pid));
+        puts(read_str_from_process((char *)entry->entry.args[1], pid));
     }
 }
 
