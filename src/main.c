@@ -74,5 +74,7 @@ main(int argc, char **argv, char **envp)
 		// TODO ERROR
 	}
 	printf("enviroment: %s\n", buffer);
+
+	return 0;
 }
 
