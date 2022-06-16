@@ -56,6 +56,11 @@ string_array_size(char **arr) {
 int
 main(int argc, char **argv, char **envp)
 {
+	if(argc < 2) {
+		fprintf(stderr, "build_recorder: no input\n");
+		return 1;
+	}
+
 	unsigned long long args_size = string_array_size(argv + 1),
 		envp_size = string_array_size(envp);
 	char buffer[args_size > envp_size ? args_size : envp_size];
