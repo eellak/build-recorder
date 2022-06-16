@@ -32,7 +32,7 @@ free_files(files *buffer);
 void
 tracee_main(char **argv);
 
-void
+int
 tracer_main(pid_t pid, files *buffer);
 
 int

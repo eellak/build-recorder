@@ -90,7 +90,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry, const struct 
     }
 }
 
-void
+int
 tracer_main(pid_t pid, files *buffer)
 {
 	waitpid(pid, NULL, 0);
@@ -119,8 +119,7 @@ tracer_main(pid_t pid, files *buffer)
 
 		if(ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *)sizeof(exit), &exit) == -1) {
 			if(errno == ESRCH) {
-                // TODO report tracee's return value "info.exit.rval"
-				break;
+				return exit.exit.rval;
 			}
 			FATAL_ERROR;
 		}
@@ -141,7 +140,7 @@ get_files_used(char **argv, files *buffer)
 			tracee_main(argv + 1);
 	}
 	
-	tracer_main(pid, buffer);
+	return tracer_main(pid, buffer);
 }
 
 void
