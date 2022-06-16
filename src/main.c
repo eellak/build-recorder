@@ -67,7 +67,7 @@ main(int argc, char **argv, char **envp)
 	
 	printf("files used:\n");
 	files vector;
-	get_files_used(argc, argv, envp, &vector);	
+	get_files_used(argv, &vector);	
 	free_files(&vector);
 
 	if(bundle_string_array(buffer, '\n', envp)) {

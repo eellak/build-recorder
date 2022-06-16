@@ -26,10 +26,10 @@ void
 tracee_main(char **argv);
 
 void
-tracer_main(pid_t pid, int argc, char **argv);
+tracer_main(pid_t pid);
 
 int
-get_files_used(int argc, char **argv, char **envp, files *buffer);
+get_files_used(char **argv, files *buffer);
 
 void
 free_files(files *buffer);

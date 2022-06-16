@@ -49,7 +49,7 @@ is_open_syscall(int syscall)
 }
 
 void
-tracer_main(pid_t pid, int argc, char **argv)
+tracer_main(pid_t pid)
 {
 	waitpid(pid, NULL, 0);
 	ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD);
@@ -89,7 +89,7 @@ tracer_main(pid_t pid, int argc, char **argv)
 }
 
 int
-get_files_used(int argc, char **argv, char **envp, files *buffer)
+get_files_used(char **argv, files *buffer)
 {
 	pid_t pid;
 
@@ -100,7 +100,7 @@ get_files_used(int argc, char **argv, char **envp, files *buffer)
 			tracee_main(argv + 1);
 	}
 	
-	tracer_main(pid, argc, argv);
+	tracer_main(pid);
 }
 
 void
