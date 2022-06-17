@@ -58,6 +58,10 @@ method(free)(struct vector_name *self)
 void
 method(reserve)(struct vector_name *self, size_t capacity)
 {
+    if(capacity && !self->capacity) {
+        self->capacity = 1;
+    }
+
     if(self->capacity < capacity) {
         while(self->capacity < capacity) {
             self->capacity *= 2;
@@ -83,3 +87,6 @@ method(push_back)(struct vector_name *self, value_type *value)
     self->arr[self->size] = *value;
     ++self->size;
 }
+
+#undef _method
+#undef method
