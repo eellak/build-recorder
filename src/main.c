@@ -21,33 +21,43 @@
 #include <string.h>
 #include "tracer.h"
 
-int
-bundle_string_array(char *buffer, char separator, char **arr) {
-	int i = 0;
-	unsigned long long end = 0;
-	while(arr[i]) {
-		unsigned long long index = 0;
-		while(arr[i][index] != '\0') {
-			buffer[end] = arr[i][index];
-			++end;
-			++index;
-		}
-		++i;
-		buffer[end] = arr[i] != NULL ? separator : '\0';
+/*
+	char *strcpy(char *dest, const char *src) isn't what we need since it returns a pointer to the "dest" string.
+
+	Instead we want ours to return a pointer to the end of "dest" string.
+
+	Also worth noting that we provide a third parameteter which will be placed at the end of "dest" string.
+*/
+char *
+my_strcopy(char *end, const char *src, char end_of_str)
+{
+	while(*src != '\0') {
+		*end = *src;
 		++end;
+		++src;
+	}
+
+	*end = end_of_str;
+	return end + 1;
+}
+
+int
+bundle_string_array(char *buffer, char separator, char **arr) 
+{
+	for(; *arr; ++arr) {
+		buffer = my_strcopy(buffer, *arr, arr[1] != NULL ? separator : '\0');
 	}
 	
 	return 0;
 }
 
 unsigned long long
-string_array_size(char **arr) {
-	int i = 0;
+string_array_size(char **arr) 
+{
 	unsigned long long size = 0;
 	
-	while(arr[i]) {
-		size += strlen(arr[i]) + 1;
-		++i;
+	for(; *arr; ++arr) {
+		size += strlen(*arr) + 1;
 	}
 
 	return size;
