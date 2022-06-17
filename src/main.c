@@ -42,7 +42,7 @@ bundle_string_array(char *buffer, char separator, char **arr) {
 
 unsigned long long
 string_array_size(char **arr) {
-	int i = 1;
+	int i = 0;
 	unsigned long long size = 0;
 	
 	while(arr[i]) {
