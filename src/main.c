@@ -52,7 +52,7 @@ bundle_string_array(char *buffer, char separator, char **arr)
 }
 
 unsigned long long
-string_array_size(char **arr) 
+bundle_string_array_size(char **arr) 
 {
 	unsigned long long size = 0;
 	
@@ -71,8 +71,8 @@ main(int argc, char **argv, char **envp)
 		return 1;
 	}
 
-	unsigned long long args_size = string_array_size(argv + 1),
-		envp_size = string_array_size(envp);
+	unsigned long long args_size = bundle_string_array_size(argv + 1),
+		envp_size = bundle_string_array_size(envp);
 	char buffer[args_size > envp_size ? args_size : envp_size];
 
 	if(bundle_string_array(buffer, ' ', argv + 1)) {
