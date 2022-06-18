@@ -6,7 +6,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 bin_PROGRAMS = build_recorder
 
-CFLAGS=-Wall -Wpedantic -Wextra
+AM_CFLAGS=-Wall -Wpedantic -Wextra
 
 build_recorder_SOURCES = \
     src/algorithms.c \
