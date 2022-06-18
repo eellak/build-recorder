@@ -9,19 +9,19 @@
 #include "tracer.h"
 #include "algorithms.h"
 
-void *
+static void *
 my_strcopy_space(void *end, const char *src)
 {
     return my_strcopy((char *) end, src, ' ');
 }
 
-void *
+static void *
 my_strcopy_newline(void *end, const char *src)
 {
     return my_strcopy((char *) end, src, '\n');
 }
 
-void
+static void
 bundle_string_array(char *buffer, char **arr,
 		    void *(*bundler)(void *, const char *))
 {
@@ -29,13 +29,13 @@ bundle_string_array(char *buffer, char **arr,
     buffer[-1] = '\0';
 }
 
-void *
+static void *
 sum_strlen(void *sum, const char *str)
 {
     return (void *) ((size_t) sum + strlen(str) + 1);
 }
 
-unsigned long long
+static unsigned long long
 bundle_string_array_size(char **arr)
 {
     return (size_t) accumulate_strings((void *) 0, arr, sum_strlen);
