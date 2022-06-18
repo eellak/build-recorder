@@ -16,24 +16,18 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
     USA
 */
-
 #pragma once
-#include <sys/types.h>
 
-typedef struct files {
-    size_t size;
-    size_t capacity;
-    char **arr;
-} files; //TODO
 
-void
-free_files(files *buffer);
+void *
+accumulate_strings(void *n, char **arr, void *(*op)(void *e, const char *str));
 
-void
-tracee_main(char **argv);
+/*
+	char *strcpy(char *dest, const char *src) isn't what we need since it returns a pointer to the "dest" string.
 
-int
-tracer_main(pid_t pid, files *buffer);
+	Instead we want ours to return a pointer to the end of "dest" string.
 
-int
-get_files_used(char **argv, files *buffer);
+	Also worth noting that we provide a third parameteter which will be placed at the end of "dest" string.
+*/
+char *
+my_strcopy(char *end, const char *src, char end_of_str);

@@ -17,23 +17,27 @@
     USA
 */
 
-#pragma once
-#include <sys/types.h>
 
-typedef struct files {
-    size_t size;
-    size_t capacity;
-    char **arr;
-} files; //TODO
+void *
+accumulate_strings(void *n, char **arr, void *(*op)(void *e, const char *str))
+{
+	while(*arr) {
+		n = op(n, *arr);
+		++arr;
+	}
 
-void
-free_files(files *buffer);
+	return n;
+}
 
-void
-tracee_main(char **argv);
+char *
+my_strcopy(char *end, const char *src, char end_of_str)
+{
+	while(*src != '\0') {
+		*end = *src;
+		++end;
+		++src;
+	}
 
-int
-tracer_main(pid_t pid, files *buffer);
-
-int
-get_files_used(char **argv, files *buffer);
+	*end = end_of_str;
+	return end + 1;
+}
