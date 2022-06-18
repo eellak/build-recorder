@@ -25,12 +25,15 @@
 #define vector_name vector
 #endif
 
-#include <stdlib.h>
-
 // Prior to including this header, define "vector_name" and "value type".
 
 #define _method(name, m) name##_##m
 #define method(m) _method(vector_name, m)
+
+#ifndef method(HEADER_GUARD)
+#define method(HEADER_GUARD)
+
+#include <stdlib.h>
 
 struct vector_name {
     value_type *arr;
@@ -81,12 +84,14 @@ void
 method(push_back)(struct vector_name *self, value_type *value)
 {
     if(self->size == self->capacity) {
-        method(extend);
+        method(extend)(self);
     }
 
     self->arr[self->size] = *value;
     ++self->size;
 }
+
+#endif
 
 #undef _method
 #undef method

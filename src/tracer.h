@@ -20,10 +20,20 @@
 #pragma once
 #include <sys/types.h>
 
+#define vector_name vector_file
+#define value_type file
+
+#include "vector.h"
+
+#undef vector_name
+#undef value_type
+
+typedef struct file {
+    char *path;
+} file;
+
 typedef struct files {
-    size_t size;
-    size_t capacity;
-    char **arr;
+    struct vector_file files;
 } files; //TODO
 
 void
