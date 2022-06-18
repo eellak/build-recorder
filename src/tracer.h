@@ -1,3 +1,4 @@
+
 /*
 	Copyright (C) 2022 Valasiadis Fotios
 	SPDX-License-Identifier: LGPL-2.1-or-later
@@ -23,14 +24,10 @@ typedef struct files {
     struct vector_file files;
 } files; //TODO
 
-void
-free_files(files *buffer);
+void free_files(files * buffer);
 
-void
-tracee_main(char **argv);
+void tracee_main(char **argv);
 
-int
-tracer_main(pid_t pid, files *buffer);
+int tracer_main(pid_t pid, files * buffer);
 
-int
-get_files_used(char **argv, files *buffer);
+int get_files_used(char **argv, files * buffer);
