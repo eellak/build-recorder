@@ -53,13 +53,13 @@ vector_method_free(struct vector_name *self)
 static inline void
 vector_method_reserve(struct vector_name *self, size_t capacity)
 {
-    if (capacity && !self->capacity)
-    {
-	self->capacity = 1;
-    }
-
     if (self->capacity < capacity)
     {
+	if (!self->capacity) // in case capacity is zero
+	{
+		self->capacity = 1;
+	}
+	
 	while (self->capacity < capacity)
 	{
 	    self->capacity *= 2;
