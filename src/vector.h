@@ -14,7 +14,8 @@
 
 // Prior to including this header, define "vector_name" and "value type".
 
-#define method(name, m) name##_##m
+#define _method(name, m) name##_##m
+#define method(name, m) _method(name, m)
 
 #define vector_method_new method(vector_name, new)
 #define vector_method_free method(vector_name, free)
