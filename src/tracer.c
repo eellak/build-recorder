@@ -61,6 +61,7 @@ read_str_from_process(char *addr, pid_t pid)
 {
     struct vector_long buffer;
     vector_long_new(&buffer);
+    vector_long_reserve(&buffer, 16 / sizeof(long));
     
     do
     {
