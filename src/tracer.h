@@ -16,8 +16,4 @@ typedef struct files
 
 void free_files(files * buffer);
 
-void tracee_main(char **argv);
-
-int tracer_main(pid_t pid, files * buffer);
-
 int get_files_used(char **argv, files * buffer);

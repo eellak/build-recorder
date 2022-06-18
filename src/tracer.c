@@ -20,7 +20,7 @@
 	fprintf(stderr, "error: %s\n", strerror(errno)); \
 	_exit(1)
 
-void
+static void
 tracee_main(char **argv)
 {
     ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
@@ -31,7 +31,7 @@ tracee_main(char **argv)
 /*
     Checks for \0 at last *size* bytes.
 */
-int
+static int
 has_end_of_str(const char *buffer, size_t size)
 {
     for (size_t i = 0; i < size; ++i)
@@ -50,7 +50,7 @@ has_end_of_str(const char *buffer, size_t size)
 /*
     addr is an address pointing to the tracee process' address space, thus we need to copy it.
 */
-const char *
+static const char *
 read_str_from_process(char *addr, pid_t pid)
 {
     static long buffer[MAXPATHLEN];
@@ -73,7 +73,7 @@ read_str_from_process(char *addr, pid_t pid)
     return cbuffer;
 }
 
-void
+static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit, files * buffer)
 {
@@ -93,7 +93,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 }
 
-int
+static int
 tracer_main(pid_t pid, files * buffer)
 {
     waitpid(pid, NULL, 0);
