@@ -67,7 +67,7 @@ vector_method_reserve(struct vector_name *self, size_t capacity)
 
 	self->arr =
 		(value_type *) realloc(self->arr,
-				       capacity * sizeof (value_type));
+				       self->capacity * sizeof (value_type));
     }
 }
 
