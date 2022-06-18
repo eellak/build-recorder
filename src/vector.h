@@ -30,9 +30,6 @@
 #define _method(name, m) name##_##m
 #define method(m) _method(vector_name, m)
 
-#ifndef method(HEADER_GUARD)
-#define method(HEADER_GUARD)
-
 #include <stdlib.h>
 
 struct vector_name {
@@ -41,14 +38,14 @@ struct vector_name {
     size_t capacity;
 };
 
-void 
+static inline void 
 method(new)(struct vector_name *self) {
     self->arr = NULL;
     self->size = 0;
     self->capacity = 0;
 }
 
-void 
+static inline void 
 method(free)(struct vector_name *self)
 {
     if(self->capacity) {
@@ -58,7 +55,7 @@ method(free)(struct vector_name *self)
     }
 }
 
-void
+static inline void
 method(reserve)(struct vector_name *self, size_t capacity)
 {
     if(capacity && !self->capacity) {
@@ -74,13 +71,13 @@ method(reserve)(struct vector_name *self, size_t capacity)
     }
 }
 
-void
+static inline void
 method(extend)(struct vector_name *self)
 {
     method(reserve)(self, self->capacity * 2);
 }
 
-void
+static inline void
 method(push_back)(struct vector_name *self, value_type *value)
 {
     if(self->size == self->capacity) {
@@ -90,8 +87,6 @@ method(push_back)(struct vector_name *self, value_type *value)
     self->arr[self->size] = *value;
     ++self->size;
 }
-
-#endif
 
 #undef _method
 #undef method
