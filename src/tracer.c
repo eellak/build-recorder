@@ -56,11 +56,13 @@ has_end_of_str(const char *buffer, size_t size)
 /*
     addr is an address pointing to the tracee process' address space, thus we need to copy it.
 */
-static const char *
+static char *
 read_str_from_process(char *addr, pid_t pid)
 {
     struct vector_long buffer;
-    const char *cbuffer = (char *) buffer.arr;	// For readability
+    vector_long_new(&buffer);
+
+    char *cbuffer = (char *) buffer.arr;	// For readability
     
     do
     {
@@ -92,7 +94,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	f.path = read_str_from_process((char *) entry->entry.args[1], pid);
     }
 
-    vector_file_push_back(buffer->files, &f);
+    vector_file_push_back(&buffer->files, &f);
 }
 
 static int
