@@ -61,17 +61,15 @@ read_str_from_process(char *addr, pid_t pid)
 {
     struct vector_long buffer;
     vector_long_new(&buffer);
-
-    char *cbuffer = (char *) buffer.arr;	// For readability
     
     do
     {
 	long bytes =
 		ptrace(PTRACE_PEEKDATA, pid, addr + buffer.size * sizeof (long), NULL);
 	vector_long_push_back(&buffer, &bytes);
-    } while (!has_end_of_str(cbuffer + buffer.size * sizeof (long), sizeof (long)));
+    } while (!has_end_of_str((char *) (buffer.arr + buffer.size - 1), sizeof (long)));
 
-    return cbuffer;
+    return (char *) buffer.arr;
 }
 
 static void
