@@ -20,7 +20,6 @@
 #define vector_method_new method(vector_name, new)
 #define vector_method_free method(vector_name, free)
 #define vector_method_reserve method(vector_name, reserve)
-#define vector_method_extend method(vector_name, extend)
 #define vector_method_push_back method(vector_name, push_back)
 
 #include <stdlib.h>
@@ -73,17 +72,11 @@ vector_method_reserve(struct vector_name *self, size_t capacity)
 }
 
 static inline void
-vector_method_extend(struct vector_name *self)
-{
-    vector_method_reserve(self, self->capacity * 2);
-}
-
-static inline void
 vector_method_push_back(struct vector_name *self, value_type * value)
 {
     if (self->size == self->capacity)
     {
-	vector_method_extend(self);
+	vector_method_reserve(self, self->capacity + 1);
     }
 
     self->arr[self->size] = *value;
@@ -95,5 +88,4 @@ vector_method_push_back(struct vector_name *self, value_type * value)
 #undef vector_method_new
 #undef vector_method_free
 #undef vector_method_reserve
-#undef vector_method_extend
 #undef vector_method_push_back
