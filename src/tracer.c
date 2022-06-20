@@ -16,6 +16,8 @@
 #include <linux/ptrace.h>
 #include "tracer.h"
 
+extern char **environ;
+
 #define FATAL_ERROR \
 	fprintf(stderr, "error: %s\n", strerror(errno)); \
 	_exit(1)
@@ -145,8 +147,9 @@ tracer_main(pid_t pid, files * buffer)
 }
 
 int
-get_files_used(char **argv, files * buffer)
+get_files_used(char **argv, char **envp, files * buffer)
 {
+    environ = envp;
     pid_t pid;
 
     switch (pid = fork())
