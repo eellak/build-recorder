@@ -5,7 +5,6 @@
 */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -14,10 +13,15 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <linux/ptrace.h>
+#include <sys/signal.h>
 #include "tracer.h"
 
 #define FATAL_ERROR \
 	fprintf(stderr, "error: %s\n", strerror(errno)); \
+	_exit(1)
+
+#define FATAL_ERROR_MSG(...) \
+	fprintf(stderr, __VA_ARGS__); \
 	_exit(1)
 
 static void
@@ -66,8 +70,7 @@ read_str_from_process(char *addr, pid_t pid)
 
     if (size == MAXPATHLEN && cbuffer[size * sizeof (long) - 1] != '\0')
     {
-	fprintf(stderr, "maximum file path size of %ld exceeded", MAXPATHLEN);
-	_exit(1);
+	FATAL_ERROR_MSG("maximum file path size of %ld exceeded", MAXPATHLEN);
     }
 
     return cbuffer;
@@ -97,21 +100,34 @@ static int
 tracer_main(pid_t pid, files * buffer)
 {
     waitpid(pid, NULL, 0);
-    ptrace(PTRACE_SETOPTIONS, pid, NULL,
-	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD);
+    ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
+	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
+	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
     struct ptrace_syscall_info entry;
     struct ptrace_syscall_info exit;
 
-    while (1)
+    size_t running = 1;		  // Running threads
+    int signal;
+    int rval;
+    pid_t tracee_pid = pid;
+
+    while (running)
     {
-	if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0)
+	if (pid >= 0 && ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0)
 	{
 	    FATAL_ERROR;
 	}
-	if (waitpid(pid, NULL, 0) < 0)
+
+	pid = wait(&signal);	       // Wait for any child
+	if (pid < 0)
 	{
 	    FATAL_ERROR;
+	}
+
+	if (!WIFSTOPPED(signal) || WSTOPSIG(signal) != (SIGTRAP | 0x80))
+	{
+	    FATAL_ERROR_MSG("expecting syscall stop\n");
 	}
 
 	if (ptrace
@@ -121,27 +137,74 @@ tracer_main(pid_t pid, files * buffer)
 	    FATAL_ERROR;
 	}
 
-	if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0)
-	{
-	    FATAL_ERROR;
-	}
-	if (waitpid(pid, NULL, 0) < 0)
+	if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0 ||
+	    waitpid(pid, &signal, 0) < 0)
 	{
 	    FATAL_ERROR;
 	}
 
-	if (ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (exit), &exit)
-	    == -1)
+	if (WIFSTOPPED(signal))
 	{
-	    if (errno == ESRCH)
+	    signal = WSTOPSIG(signal);
+	} else if (WIFEXITED(signal))
+	{
+	    if (pid == tracee_pid)
 	    {
-		return exit.exit.rval;
+		rval = WEXITSTATUS(signal);
 	    }
+	    --running;
+	    pid = -1;		       // Shouldn't send a syscall signal to
+				       // a dead process
+	    continue;
+	} else
+	{
+	    FATAL_ERROR_MSG
+		    ("expecting syscall stop, event stop, or tracee death\n");
+	}
+
+	// printf("exit signal:%d\n", signal);
+
+	if (signal == SIGTRAP)
+	{
+	    ++running;
+	    pid_t parent = pid;
+
+	    if (ptrace(PTRACE_GETEVENTMSG, pid, NULL, &pid) < 0 ||
+		waitpid(pid, &signal, 0) < 0)
+	    {
+		FATAL_ERROR;
+	    }
+
+	    if (!WIFSTOPPED(signal) || WSTOPSIG(signal) != SIGSTOP)
+	    {
+		FATAL_ERROR_MSG("signal should be SIGSTOP\n");
+	    }
+	    // Reading and ignoring clone/fork/vfork syscall exit
+	    if (ptrace(PTRACE_SYSCALL, parent, NULL, NULL) < 0 ||
+		waitpid(parent, NULL, 0) < 0)
+	    {
+		FATAL_ERROR;
+	    }
+	    // Restarting parent
+	    if (ptrace(PTRACE_SYSCALL, parent, NULL, NULL) < 0)
+	    {
+		FATAL_ERROR;
+	    }
+
+	    continue;		       // Child will be signaled to continue
+				       // upon next iteration
+	}
+
+	if (ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (exit), &exit)
+	    < 0)
+	{
 	    FATAL_ERROR;
 	}
 
 	handle_syscall(pid, &entry, &exit, buffer);
     }
+
+    return rval;
 }
 
 int
