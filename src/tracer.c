@@ -98,8 +98,8 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 typedef struct state
 {
-	struct ptrace_syscall_info info;
-	pid_t pid;
+    struct ptrace_syscall_info info;
+    pid_t pid;
 } state;
 
 #define vector_name vector_state
@@ -110,23 +110,24 @@ typedef struct state
 #undef vector_name
 #undef value_type
 
-state *find(const struct vector_state *vec, pid_t pid)
+state *
+find(const struct vector_state *vec, pid_t pid)
 {
-	for(size_t i = 0; i < vec->size; ++i)
+    for (size_t i = 0; i < vec->size; ++i)
+    {
+	if (vec->arr[i].pid == pid)
 	{
-		if(vec->arr[i].pid == pid)
-		{
-			return vec->arr + i;
-		}
+	    return vec->arr + i;
 	}
+    }
 
-	FATAL_ERROR_MSG("process %d isn't in children\n", pid);
+    FATAL_ERROR_MSG("process %d isn't in children\n", pid);
 }
 
 static int
 tracer_main(pid_t pid, files * buffer)
 {
-				printf("%d entered\n", pid);
+    printf("%d entered\n", pid);
     waitpid(pid, NULL, 0);
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
@@ -134,10 +135,12 @@ tracer_main(pid_t pid, files * buffer)
 
     struct ptrace_syscall_info info;
     struct vector_state children;
+
     vector_state_new(&children);
     vector_state_reserve(&children, 16);
 
     state temp;
+
     temp.pid = pid;
     vector_state_push_back(&children, &temp);
 
@@ -158,68 +161,74 @@ tracer_main(pid_t pid, files * buffer)
 
 	if (pid < 0)
 	{
-		FATAL_ERROR;
+	    FATAL_ERROR;
 	}
-	
+
 	if (WIFSTOPPED(status))
 	{
-		switch (WSTOPSIG(status))
-		{
-			case SIGTRAP | 0x80:
-				process_state = find(&children, pid);
+	    switch (WSTOPSIG(status))
+	    {
+		case SIGTRAP | 0x80:
+		    process_state = find(&children, pid);
 
-				if(ptrace(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info), &info) < 0)
-				{
-					FATAL_ERROR;
-				}
-
-				switch(info.op)
-				{
-					case PTRACE_SYSCALL_INFO_ENTRY:
-						process_state->info = info;
-						break;
-					case PTRACE_SYSCALL_INFO_EXIT:
-						handle_syscall(pid, &process_state->info, &info, buffer);
-						break;
-					default:
-						FATAL_ERROR_MSG("expected PTRACE_SYSCALL_INFO_ENTRY or PTRACE_SYSCALL_INFO_EXIT\n");
-				}
-				
-				break;
-			case SIGTRAP: // Caused from fork/vfork/clone/. Ignored, the child will be handled at SYGSTOP instead.
-				// Reading and ignoring clone/fork/vfork syscall exit
-				if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0 ||
-					waitpid(pid, NULL, 0) < 0)
-				{
-					FATAL_ERROR;
-				}
-
-				break;
-			case SIGSTOP:
-				temp.pid = pid;
-				vector_state_push_back(&children, &temp);
-				break;
-			default:
-				FATAL_ERROR_MSG("unexpected signal\n");
-		}
-
-		// Restarting process 
-		if(ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0)
-		{
+		    if (ptrace
+			(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info),
+			 &info) < 0)
+		    {
 			FATAL_ERROR;
-		}
-	} else if (WIFEXITED(status)) // child process exited
+		    }
+
+		    switch (info.op)
+		    {
+			case PTRACE_SYSCALL_INFO_ENTRY:
+			    process_state->info = info;
+			    break;
+			case PTRACE_SYSCALL_INFO_EXIT:
+			    handle_syscall(pid, &process_state->info, &info,
+					   buffer);
+			    break;
+			default:
+			    FATAL_ERROR_MSG
+				    ("expected PTRACE_SYSCALL_INFO_ENTRY or PTRACE_SYSCALL_INFO_EXIT\n");
+		    }
+
+		    break;
+		case SIGTRAP:	       // Caused from fork/vfork/clone/.
+				       // Ignored, the child will be handled
+				       // at SYGSTOP instead.
+		    // Reading and ignoring clone/fork/vfork syscall exit
+		    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0 ||
+			waitpid(pid, NULL, 0) < 0)
+		    {
+			FATAL_ERROR;
+		    }
+
+		    break;
+		case SIGSTOP:
+		    temp.pid = pid;
+		    vector_state_push_back(&children, &temp);
+		    break;
+		default:
+		    FATAL_ERROR_MSG("unexpected signal\n");
+	    }
+
+	    // Restarting process 
+	    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0)
+	    {
+		FATAL_ERROR;
+	    }
+	} else if (WIFEXITED(status))  // child process exited
 	{
 	    *find(&children, pid) = children.arr[children.size - 1];
 	    --children.size;
-	
+
 	    if (pid == tracee_pid)
 	    {
 		rval = WEXITSTATUS(status);
 	    }
 	} else
 	{
-		FATAL_ERROR_MSG("expected stop or tracee death\n");
+	    FATAL_ERROR_MSG("expected stop or tracee death\n");
 	}
     }
 
