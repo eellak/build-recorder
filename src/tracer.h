@@ -5,14 +5,23 @@
 */
 
 #pragma once
-#include <sys/types.h>
 
-typedef struct files
-{
-    size_t size;
-    size_t capacity;
-    char **arr;
-} files;			  // TODO
+typedef struct file {
+    char *path;
+} file;
+
+#define vector_name vector_file
+#define value_type file
+
+#include "vector.h"
+
+#undef vector_name
+#undef value_type
+
+
+typedef struct files {
+    struct vector_file files;
+} files; //TODO
 
 void free_files(files * buffer);
 
