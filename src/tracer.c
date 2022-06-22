@@ -25,7 +25,7 @@
 	_exit(1)
 
 static void
-tracee_main(char **argv)
+tracee_main(char *const *argv)
 {
     ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
     execvp(*argv, argv);
@@ -61,7 +61,7 @@ has_end_of_str(const char *buffer, size_t size)
     addr is an address pointing to the tracee process' address space, thus we need to copy it.
 */
 static char *
-read_str_from_process(char *addr, pid_t pid)
+read_str_from_process(const char *addr, pid_t pid)
 {
     struct vector_long buffer;
     vector_long_new(&buffer);
@@ -239,7 +239,7 @@ tracer_main(pid_t pid, files *buffer)
 }
 
 int
-get_files_used(char **argv, files *buffer)
+get_files_used(char *const *argv, files *buffer)
 {
     pid_t pid;
 

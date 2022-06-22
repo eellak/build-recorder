@@ -25,7 +25,7 @@ static void
 bundle_string_array(char *buffer, char **arr,
 		    void *(*bundler)(void *, const char *))
 {
-    buffer = accumulate_strings( (void *) buffer, arr, bundler);
+    buffer = accumulate_strings((void *) buffer, arr, bundler);
     buffer[-1] = '\0';
 }
 
