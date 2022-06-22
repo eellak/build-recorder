@@ -60,6 +60,7 @@ main(int argc, char **argv, char **envp)
 
     printf("files used:\n");
     files vector;
+    vector_file_new(&vector.files);
 
     get_files_used(argv, &vector);
     free_files(&vector);
