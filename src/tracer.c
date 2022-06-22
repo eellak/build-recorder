@@ -131,7 +131,6 @@ find(const struct vector_state *vec, pid_t pid)
 static int
 tracer_main(pid_t pid, files *buffer)
 {
-    printf("%d entered\n", pid);
     waitpid(pid, NULL, 0);
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
