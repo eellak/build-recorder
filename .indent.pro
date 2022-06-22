@@ -77,3 +77,8 @@
 -Tuintptr_t
 -Tuseconds_t
 -Tva_list
+
+/* project-specific types */
+-TFILE_INFO
+-TPROCESS_INFO
+
