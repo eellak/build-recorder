@@ -49,36 +49,37 @@ has_end_of_str(const char *buffer, size_t size)
     return 0;
 }
 
-#define MAXPATHLEN 10240 / sizeof(long)
+#define vector_name vector_long
+#define value_type long
+
+#include "vector.h"
+
+#undef vector_name
+#undef value_type
 
 /*
     addr is an address pointing to the tracee process' address space, thus we need to copy it.
 */
-static const char *
+static char *
 read_str_from_process(char *addr, pid_t pid)
 {
-    static long buffer[MAXPATHLEN];
-    static const char *cbuffer = (char *) buffer;	// For readability
-    size_t size = 0;
-
+    struct vector_long buffer;
+    vector_long_new(&buffer);
+    vector_long_reserve(&buffer, 16 / sizeof(long));
+    
     do
     {
-	buffer[size] =
-		ptrace(PTRACE_PEEKDATA, pid, addr + size * sizeof (long), NULL);
-    } while (!has_end_of_str(cbuffer + size, sizeof (long)) &&
-	     ++size != MAXPATHLEN);
+	long bytes =
+		ptrace(PTRACE_PEEKDATA, pid, addr + buffer.size * sizeof (long), NULL);
+	vector_long_push_back(&buffer, &bytes);
+    } while (!has_end_of_str((char *) (buffer.arr + buffer.size - 1), sizeof (long)));
 
-    if (size == MAXPATHLEN && cbuffer[size * sizeof (long) - 1] != '\0')
-    {
-	FATAL_ERROR_MSG("maximum file path size of %ld exceeded", MAXPATHLEN);
-    }
-
-    return cbuffer;
+    return (char *) buffer.arr;
 }
 
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
-	       const struct ptrace_syscall_info *exit, files * buffer)
+	       const struct ptrace_syscall_info *exit, files *buffer)
 {
     if (exit->exit.rval < 0)
     {
@@ -86,14 +87,17 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 
     int syscall = entry->entry.nr;
+    file f;
 
     if (syscall == SYS_open || syscall == SYS_creat)
     {
-	puts(read_str_from_process((char *) entry->entry.args[0], pid));
+	f.path = read_str_from_process((char *) entry->entry.args[0], pid);
     } else if (syscall == SYS_openat)
     {
-	puts(read_str_from_process((char *) entry->entry.args[1], pid));
+	f.path = read_str_from_process((char *) entry->entry.args[1], pid);
     }
+
+    vector_file_push_back(&buffer->files, &f);
 }
 
 typedef struct state
@@ -125,7 +129,7 @@ find(const struct vector_state *vec, pid_t pid)
 }
 
 static int
-tracer_main(pid_t pid, files * buffer)
+tracer_main(pid_t pid, files *buffer)
 {
     printf("%d entered\n", pid);
     waitpid(pid, NULL, 0);
@@ -236,7 +240,7 @@ tracer_main(pid_t pid, files * buffer)
 }
 
 int
-get_files_used(char **argv, files * buffer)
+get_files_used(char **argv, files *buffer)
 {
     pid_t pid;
 
@@ -252,7 +256,7 @@ get_files_used(char **argv, files * buffer)
 }
 
 void
-free_files(files * buffer)
+free_files(files *buffer)
 {
     // TODO
 }
