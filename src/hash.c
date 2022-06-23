@@ -127,18 +127,16 @@ hash_file(char *fname)
 {
     struct stat fstat;
 
-    if (lstat(fname, &fstat))
+    if (stat(fname, &fstat))
     {
 	error(0, errno, "getting info on `%s'", fname);
 	return NULL;
     }
-    if (S_ISREG(fstat.st_mode))
+    if (S_ISREG(fstat.st_mode) || S_ISLNK(fstat.st_mode))
     {
 	return hash_file_contents(fname, fstat.st_size);
-    }
-
-    if (S_ISLNK(fstat.st_mode))
+    } else
     {
-	return process_symlink(fname, &fstat);
+	return NULL;
     }
 }
