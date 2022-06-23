@@ -25,4 +25,4 @@ typedef struct files {
 
 void free_files(files * buffer);
 
-int get_files_used(char **argv, files * buffer);
+int get_files_used(char *const *argv, files * buffer);
