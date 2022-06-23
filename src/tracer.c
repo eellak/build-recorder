@@ -1,80 +1,109 @@
 
 /*
-	Copyright (C) 2022 Valasiadis Fotios
-	SPDX-License-Identifier: LGPL-2.1-or-later
+Copyright (C) 2022 Valasiadis Fotios
+Copyright (C) 2022 Alexios Zavras
+SPDX-License-Identifier: LGPL-2.1-or-later
 */
 
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
+#include	"config.h"
 
-#include <sys/syscall.h>
-#include <sys/ptrace.h>
-#include <sys/wait.h>
-#include <linux/ptrace.h>
-#include <sys/signal.h>
-#include "tracer.h"
+#include	<errno.h>
+#include	<error.h>
+#include	<limits.h>
+#include	<stdint.h>
+#include	<stdlib.h>
+#include	<string.h>
+#include	<unistd.h>
 
-#define FATAL_ERROR \
-	fprintf(stderr, "error: %s\n", strerror(errno)); \
-	_exit(1)
+#include	<sys/ptrace.h>
 
-#define FATAL_ERROR_MSG(...) \
-	fprintf(stderr, __VA_ARGS__); \
-	_exit(1)
+#include	"types.h"
 
-static void
-tracee_main(char **argv)
-{
-    ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
-    execvp(*argv, argv);
-    FATAL_ERROR;		       // exec shouldn't return.
-}
+//      #include <sys/syscall.h>
+//      #include <sys/wait.h>
+//      #include <linux/ptrace.h>
+//      #include <sys/signal.h>
 
 /*
-    Checks for \0 at last *size* bytes.
-*/
-static int
-has_end_of_str(const char *buffer, size_t size)
+ * variables for the list of processes,
+ * its size and the array size
+ */
+
+PROCESS_INFO *pinfo;
+int numpinfo;
+int pinfo_size;
+
+#define	DEFAULT_PINFO_SIZE	32
+#define	DEFAULT_FINFO_SIZE	32
+
+/*
+ * memory allocators for pinfo
+ */
+
+void
+init_pinfo(void)
 {
-    for (size_t i = 0; i < size; ++i)
+    pinfo_size = DEFAULT_PINFO_SIZE;
+    pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
+    numpinfo = -1;
+}
+
+PROCESS_INFO *
+next_pinfo(void)
+{
+    if (numpinfo < pinfo_size)
+	return &(pinfo[++numpinfo]);
+
+    pinfo_size *= 2;
+    pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
+    if (pinfo == NULL)
+	error(EXIT_FAILURE, errno, "reallocating process info array");
+    return &(pinfo[++numpinfo]);
+}
+
+FILE_INFO *
+next_finfo(PROCESS_INFO *pi)
+{
+    if (pi->numfinfo < pi->finfo_size)
+	return &(pi->finfo[++(pi->numfinfo)]);
+
+    pi->finfo_size *= 2;
+    pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
+    if (pi->finfo == NULL)
+	error(EXIT_FAILURE, errno, "reallocating file info array in process %d",
+	      pi->pid);
+    return &(pi->finfo[++(pi->numfinfo)]);
+}
+
+char *
+get_str_from_process(pid_t pid, void *addr)
+{
+    static char buf[PATH_MAX];
+    char *dest = buf;
+    union
     {
-	if (buffer[i] == '\0')
+	long lval;
+	char cval[sizeof (long)];
+    } data;
+
+    for (int i = 0;; i++)
+    {
+	data.lval =
+		ptrace(PTRACE_PEEKDATA, pid, addr + i * sizeof (long), NULL);
+	for (int j = 0; j < sizeof (long); j++)
 	{
-	    return 1;
+	    *dest++ = data.cval[j];
+	    if (data.cval[j] == 0)
+		break;
 	}
     }
-
-    return 0;
+    return strdup(buf);
 }
 
-#define MAXPATHLEN 10240 / sizeof(long)
+/*====================================================================================*/
 
-/*
-    addr is an address pointing to the tracee process' address space, thus we need to copy it.
-*/
-static const char *
-read_str_from_process(char *addr, pid_t pid)
-{
-    static long buffer[MAXPATHLEN];
-    static const char *cbuffer = (char *) buffer;	// For readability
-    size_t size = 0;
-
-    do
-    {
-	buffer[size] =
-		ptrace(PTRACE_PEEKDATA, pid, addr + size * sizeof (long), NULL);
-    } while (!has_end_of_str(cbuffer + size, sizeof (long)) &&
-	     ++size != MAXPATHLEN);
-
-    if (size == MAXPATHLEN && cbuffer[size * sizeof (long) - 1] != '\0')
-    {
-	FATAL_ERROR_MSG("maximum file path size of %ld exceeded", MAXPATHLEN);
-    }
-
-    return cbuffer;
-}
+#if 0
+// still TODO
 
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
@@ -102,13 +131,13 @@ typedef struct state
     pid_t pid;
 } state;
 
-#define vector_name vector_state
-#define value_type state
+#  define vector_name vector_state
+#  define value_type state
 
-#include "vector.h"
+#  include "vector.h"
 
-#undef vector_name
-#undef value_type
+#  undef vector_name
+#  undef value_type
 
 state *
 find(const struct vector_state *vec, pid_t pid)
@@ -235,24 +264,43 @@ tracer_main(pid_t pid, files * buffer)
     return rval;
 }
 
-int
-get_files_used(char **argv, files * buffer)
+#endif
+
+/*====================================================================================*/
+
+void
+trace(pid_t pid)
 {
-    pid_t pid;
+    PROCESS_INFO *pi;
 
-    switch (pid = fork())
-    {
-	case -1:
-	    FATAL_ERROR;
-	case 0:
-	    tracee_main(argv + 1);
-    }
+    pi = next_pinfo();
+    pi->pid = pid;
 
-    return tracer_main(pid, buffer);
+    pi->finfo_size = DEFAULT_FINFO_SIZE;
+    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
+    pi->numfinfo = -1;
 }
 
 void
-free_files(files * buffer)
+run_tracee(char **av)
 {
-    // TODO
+    ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
+    execvp(*av, av);
+    error(EXIT_FAILURE, errno, "after child exec()");
+}
+
+void
+run_and_record_fnames(char **av)
+{
+    pid_t pid;
+
+    pid = fork();
+    if (pid < 0)
+	error(EXIT_FAILURE, errno, "in original fork()");
+    else if (pid == 0)
+	run_tracee(av);
+
+    init_pinfo();
+    trace(pid);
+
 }

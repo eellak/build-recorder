@@ -38,7 +38,8 @@ typedef struct
 {
     pid_t pid;
     char *cmd_line;
-    int numfiles;
-    FILE_INFO *files;
+    int numfinfo;
+    FILE_INFO *finfo;
+    int finfo_size;
     int open_files[1024];
 } PROCESS_INFO;

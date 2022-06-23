@@ -13,7 +13,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sysexits.h>
 #include <unistd.h>
 
-#include "tracer.h"
+void run_and_record_fnames(char **av);
 
 void
 record_cmdline(FILE *fout, char **ap)
