@@ -2,11 +2,10 @@
 --blank-lines-after-declarations
 --blank-lines-after-procedures
 --blank-lines-before-block-comments
---brace-indent0
 --braces-after-func-def-line
---braces-after-if-line
---braces-after-struct-decl-line
---break-after-boolean-operator
+--braces-on-if-line
+--braces-on-struct-decl-line
+--break-before-boolean-operator
 --case-brace-indentation0
 --case-indentation4
 --comment-indentation40
@@ -16,7 +15,7 @@
 --cuddle-do-while
 --cuddle-else
 --declaration-comment-column35
---declaration-indentation0
+--declaration-indentation16
 --dont-break-function-decl-args
 --dont-break-function-decl-args-end
 --dont-format-first-column-comments
@@ -24,7 +23,8 @@
 --dont-star-comments
 --else-endif-column12
 --format-all-comments
---honour-newlines
+--gettext-strings
+--ignore-newlines
 --indent-label-2
 --indent-level4
 --line-comments-indentation0
@@ -42,6 +42,7 @@
 --space-after-for
 --space-after-if
 --space-after-while
+--spaces-around-initializers
 --space-special-semicolon
 --struct-brace-indentation0
 --swallow-optional-blank-lines
@@ -77,6 +78,9 @@
 -Tuintptr_t
 -Tuseconds_t
 -Tva_list
+
+/* OpenSSL types */
+-TSHA_CTX
 
 /* project-specific types */
 -TFILE_INFO
