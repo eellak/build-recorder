@@ -16,22 +16,22 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<unistd.h>
 
 #include	<sys/ptrace.h>
+#include	<linux/ptrace.h>
+
+#include	<sys/signal.h>
+#include	<sys/syscall.h>
+#include	<sys/wait.h>
 
 #include	"types.h"
-
-//      #include <sys/syscall.h>
-//      #include <sys/wait.h>
-//      #include <linux/ptrace.h>
-//      #include <sys/signal.h>
 
 /*
  * variables for the list of processes,
  * its size and the array size
  */
 
-PROCESS_INFO *pinfo;
-int numpinfo;
-int pinfo_size;
+PROCESS_INFO   *pinfo;
+int             numpinfo;
+int             pinfo_size;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
@@ -48,7 +48,7 @@ init_pinfo(void)
     numpinfo = -1;
 }
 
-PROCESS_INFO *
+PROCESS_INFO   *
 next_pinfo(void)
 {
     if (numpinfo < pinfo_size)
@@ -61,7 +61,7 @@ next_pinfo(void)
     return &(pinfo[++numpinfo]);
 }
 
-FILE_INFO *
+FILE_INFO      *
 next_finfo(PROCESS_INFO *pi)
 {
     if (pi->numfinfo < pi->finfo_size)
@@ -75,150 +75,133 @@ next_finfo(PROCESS_INFO *pi)
     return &(pi->finfo[++(pi->numfinfo)]);
 }
 
-char *
+char           *
 get_str_from_process(pid_t pid, void *addr)
 {
-    static char buf[PATH_MAX];
-    char *dest = buf;
-    union
-    {
-	long lval;
-	char cval[sizeof (long)];
+    static char     buf[PATH_MAX];
+    char           *dest = buf;
+    union {
+	long            lval;
+	char            cval[sizeof (long)];
     } data;
 
-    for (int i = 0;; i++)
-    {
+    size_t          i = 0;
+
+    do {
 	data.lval =
 		ptrace(PTRACE_PEEKDATA, pid, addr + i * sizeof (long), NULL);
-	for (int j = 0; j < sizeof (long); j++)
-	{
+	for (int j = 0; j < sizeof (long); j++) {
 	    *dest++ = data.cval[j];
 	    if (data.cval[j] == 0)
 		break;
 	}
-    }
+	++i;
+    } while (*dest);
     return strdup(buf);
 }
 
-/*====================================================================================*/
-
-#if 0
-// still TODO
+#define find(arr, size, pid)						\
+({ 									\
+    size_t i = 0;							\
+    for (; i < size; ++i)						\
+    {									\
+	if (arr[i].pid == pid)						\
+	{								\
+	    break;							\
+	}								\
+    }									\
+									\
+									\
+    if(i == size)							\
+    { 									\
+        error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);	\
+    }									\
+    arr + i; 								\
+})
 
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
-	       const struct ptrace_syscall_info *exit, files * buffer)
+	       const struct ptrace_syscall_info *exit)
 {
-    if (exit->exit.rval < 0)
-    {
+    if (exit->exit.rval < 0) {
 	return;			       // return on syscall failure
     }
 
-    int syscall = entry->entry.nr;
+    FILE_INFO      *finfo = next_finfo(find(pinfo, numpinfo + 1, pid));
 
-    if (syscall == SYS_open || syscall == SYS_creat)
-    {
-	puts(read_str_from_process((char *) entry->entry.args[0], pid));
-    } else if (syscall == SYS_openat)
-    {
-	puts(read_str_from_process((char *) entry->entry.args[1], pid));
+    int             syscall = entry->entry.nr;
+
+    if (syscall == SYS_open || syscall == SYS_creat) {
+	finfo->path = get_str_from_process(pid, (void *) entry->entry.args[0]);
+	finfo->purpose = entry->entry.args[1];
+    } else if (syscall == SYS_openat) {
+	finfo->path = get_str_from_process(pid, (void *) entry->entry.args[1]);
+	finfo->purpose = entry->entry.args[2];
     }
 }
 
-typedef struct state
-{
+typedef struct {
     struct ptrace_syscall_info info;
-    pid_t pid;
+    pid_t           pid;
 } state;
 
-#  define vector_name vector_state
-#  define value_type state
+#define PROCESSES_RUNNING_MAX 10240
 
-#  include "vector.h"
-
-#  undef vector_name
-#  undef value_type
-
-state *
-find(const struct vector_state *vec, pid_t pid)
+static void
+tracer_main(pid_t pid)
 {
-    for (size_t i = 0; i < vec->size; ++i)
-    {
-	if (vec->arr[i].pid == pid)
-	{
-	    return vec->arr + i;
-	}
-    }
-
-    FATAL_ERROR_MSG("process %d isn't in children\n", pid);
-}
-
-static int
-tracer_main(pid_t pid, files * buffer)
-{
-    printf("%d entered\n", pid);
     waitpid(pid, NULL, 0);
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
     struct ptrace_syscall_info info;
-    struct vector_state children;
-
-    vector_state_new(&children);
-    vector_state_reserve(&children, 16);
-
-    state temp;
+    static state    children[PROCESSES_RUNNING_MAX];
+    static size_t   last = -1;
+ 
+    state           temp;
 
     temp.pid = pid;
-    vector_state_push_back(&children, &temp);
+    children[++last] = temp;
 
-    int status;
-    int rval;
-    pid_t tracee_pid = pid;
-    state *process_state;
+    int             status;
+    pid_t           tracee_pid = pid;
+    state          *process_state;
 
     // Starting tracee
-    if (ptrace(PTRACE_SYSCALL, tracee_pid, NULL, NULL) < 0)
-    {
-	FATAL_ERROR;
+    if (ptrace(PTRACE_SYSCALL, tracee_pid, NULL, NULL) < 0) {
+	error(EXIT_FAILURE, errno, "tracee PTRACE_SYSCALL failed");
     }
 
-    while (children.size)
-    {
+    while (last != -1) {
 	pid = wait(&status);
 
-	if (pid < 0)
-	{
-	    FATAL_ERROR;
+	if (pid < 0) {
+	    error(EXIT_FAILURE, errno, "wait failed");
 	}
 
-	if (WIFSTOPPED(status))
-	{
-	    switch (WSTOPSIG(status))
-	    {
+	if (WIFSTOPPED(status)) {
+	    switch (WSTOPSIG(status)) {
 		case SIGTRAP | 0x80:
-		    process_state = find(&children, pid);
+		    process_state = find(children, last + 1, pid);
 
 		    if (ptrace
 			(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info),
-			 &info) < 0)
-		    {
-			FATAL_ERROR;
+			 &info) < 0) {
+			error(EXIT_FAILURE, errno,
+			      "tracee PTRACE_GET_SYSCALL_INFO failed");
 		    }
 
-		    switch (info.op)
-		    {
+		    switch (info.op) {
 			case PTRACE_SYSCALL_INFO_ENTRY:
 			    process_state->info = info;
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall(pid, &process_state->info, &info,
-					   buffer);
+			    handle_syscall(pid, &process_state->info, &info);
 			    break;
 			default:
-			    FATAL_ERROR_MSG
-				    ("expected PTRACE_SYSCALL_INFO_ENTRY or PTRACE_SYSCALL_INFO_EXIT\n");
+			    error(EXIT_FAILURE, errno,
+				  "expected PTRACE_SYSCALL_INFO_ENTRY or PTRACE_SYSCALL_INFO_EXIT\n");
 		    }
 
 		    break;
@@ -226,52 +209,46 @@ tracer_main(pid_t pid, files * buffer)
 		    // Ignored, the child will be handled
 		    // at SYGSTOP instead.
 		    // Reading and ignoring clone/fork/vfork syscall exit
-		    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0 ||
-			waitpid(pid, NULL, 0) < 0)
-		    {
-			FATAL_ERROR;
+		    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0
+			|| waitpid(pid, NULL, 0) < 0) {
+			error(EXIT_FAILURE, errno,
+			      "PTRACE_SYSCALL failed on fork/vfork/clone exit");
 		    }
 
 		    break;
 		case SIGSTOP:
 		    temp.pid = pid;
-		    vector_state_push_back(&children, &temp);
+		    children[++last] = temp;
+
+		    PROCESS_INFO   *pi = next_pinfo();
+
+		    pi->pid = pid;
+		    pi->finfo_size = DEFAULT_FINFO_SIZE;
+		    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
+		    pi->numfinfo = -1;
 		    break;
 		default:
-		    FATAL_ERROR_MSG("unexpected signal\n");
+		    error(EXIT_FAILURE, errno, "unexpected signal\n");
 	    }
 
 	    // Restarting process 
-	    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0)
-	    {
-		FATAL_ERROR;
+	    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0) {
+		error(EXIT_FAILURE, errno, "failed restarting process");
 	    }
 	} else if (WIFEXITED(status))  // child process exited
 	{
-	    *find(&children, pid) = children.arr[children.size - 1];
-	    --children.size;
-
-	    if (pid == tracee_pid)
-	    {
-		rval = WEXITSTATUS(status);
-	    }
-	} else
-	{
-	    FATAL_ERROR_MSG("expected stop or tracee death\n");
+	    *find(children, last + 1, pid) = children[last];
+	    --last;
+	} else {
+	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
     }
-
-    return rval;
 }
-
-#endif
-
-/*====================================================================================*/
 
 void
 trace(pid_t pid)
 {
-    PROCESS_INFO *pi;
+    PROCESS_INFO   *pi;
 
     pi = next_pinfo();
     pi->pid = pid;
@@ -279,6 +256,8 @@ trace(pid_t pid)
     pi->finfo_size = DEFAULT_FINFO_SIZE;
     pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
     pi->numfinfo = -1;
+
+    tracer_main(pid);
 }
 
 void
@@ -292,7 +271,7 @@ run_tracee(char **av)
 void
 run_and_record_fnames(char **av)
 {
-    pid_t pid;
+    pid_t           pid;
 
     pid = fork();
     if (pid < 0)
