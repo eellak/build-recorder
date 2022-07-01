@@ -97,27 +97,27 @@ get_str_from_process(pid_t pid, void *addr)
 	}
 	++i;
     } while (*dest);
+
     return strdup(buf);
 }
 
-#define find(arr, size, pid)						\
-({ 									\
-    size_t i = 0;							\
-    for (; i < size; ++i)						\
-    {									\
-	if (arr[i].pid == pid)						\
-	{								\
-	    break;							\
-	}								\
-    }									\
-									\
-									\
-    if(i == size)							\
-    { 									\
-        error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);	\
-    }									\
-    arr + i; 								\
-})
+PROCESS_INFO *
+find(pid_t pid)
+{
+    size_t i = numpinfo;
+    while (i >= 0 && pinfo[i].pid != pid)
+    {
+	--i;
+    }
+
+
+    if(i < 0)
+    {
+        error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
+    }
+
+    return pinfo + i;
+}
 
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
@@ -127,7 +127,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	return;			       // return on syscall failure
     }
 
-    FILE_INFO      *finfo = next_finfo(find(pinfo, numpinfo + 1, pid));
+    FILE_INFO      *finfo = next_finfo(find(pid));
 
     int             syscall = entry->entry.nr;
 
@@ -140,13 +140,6 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 }
 
-typedef struct {
-    struct ptrace_syscall_info info;
-    pid_t           pid;
-} state;
-
-#define PROCESSES_RUNNING_MAX 10240
-
 static void
 tracer_main(pid_t pid)
 {
@@ -156,24 +149,18 @@ tracer_main(pid_t pid)
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
     struct ptrace_syscall_info info;
-    static state    children[PROCESSES_RUNNING_MAX];
-    static size_t   last = -1;
- 
-    state           temp;
-
-    temp.pid = pid;
-    children[++last] = temp;
+    static size_t   running = 1;
 
     int             status;
     pid_t           tracee_pid = pid;
-    state          *process_state;
+    PROCESS_INFO    *process_state;
 
     // Starting tracee
     if (ptrace(PTRACE_SYSCALL, tracee_pid, NULL, NULL) < 0) {
 	error(EXIT_FAILURE, errno, "tracee PTRACE_SYSCALL failed");
     }
 
-    while (last != -1) {
+    while (running) {
 	pid = wait(&status);
 
 	if (pid < 0) {
@@ -183,7 +170,7 @@ tracer_main(pid_t pid)
 	if (WIFSTOPPED(status)) {
 	    switch (WSTOPSIG(status)) {
 		case SIGTRAP | 0x80:
-		    process_state = find(children, last + 1, pid);
+		    process_state = find(pid);
 
 		    if (ptrace
 			(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info),
@@ -194,10 +181,10 @@ tracer_main(pid_t pid)
 
 		    switch (info.op) {
 			case PTRACE_SYSCALL_INFO_ENTRY:
-			    process_state->info = info;
+			    process_state->state = info;
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall(pid, &process_state->info, &info);
+			    handle_syscall(pid, &process_state->state, &info);
 			    break;
 			default:
 			    error(EXIT_FAILURE, errno,
@@ -217,8 +204,7 @@ tracer_main(pid_t pid)
 
 		    break;
 		case SIGSTOP:
-		    temp.pid = pid;
-		    children[++last] = temp;
+		    ++running;
 
 		    PROCESS_INFO   *pi = next_pinfo();
 
@@ -237,8 +223,7 @@ tracer_main(pid_t pid)
 	    }
 	} else if (WIFEXITED(status))  // child process exited
 	{
-	    *find(children, last + 1, pid) = children[last];
-	    --last;
+		--running;
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}

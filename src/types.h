@@ -1,6 +1,7 @@
 
 /*
 Copyright (C) 2022 Alexios Zavras
+Copyright (C) 2022 Valasiadis Fotios
 SPDX-License-Identifier: LGPL-2.1-or-later
 */
 
@@ -10,6 +11,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+
+#include <sys/ptrace.h>
 
 /*
  * For each file, we keep its name/path
@@ -32,7 +35,8 @@ typedef struct
  * the number of files recorded,
  * the actual information on the files,
  * and, while it's running,
- * a map of open descriptors to file infomation entries.
+ * a map of open descriptors to file infomation entries,
+ * as well as its current syscall stop info struct.
  */
 typedef struct
 {
@@ -42,4 +46,5 @@ typedef struct
     FILE_INFO *finfo;
     int finfo_size;
     int open_files[1024];
+    struct ptrace_syscall_info state;
 } PROCESS_INFO;
