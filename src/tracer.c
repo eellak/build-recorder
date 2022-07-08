@@ -101,19 +101,17 @@ get_str_from_process(pid_t pid, void *addr)
     return strdup(buf);
 }
 
-PROCESS_INFO *
+PROCESS_INFO   *
 find(pid_t pid)
 {
-    size_t i = numpinfo;
-    while (i >= 0 && pinfo[i].pid != pid)
-    {
+    size_t          i = numpinfo;
+
+    while (i >= 0 && pinfo[i].pid != pid) {
 	--i;
     }
 
-
-    if(i < 0)
-    {
-        error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
+    if (i < 0) {
+	error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
     }
 
     return pinfo + i;
@@ -127,9 +125,27 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	return;			       // return on syscall failure
     }
 
-    FILE_INFO      *finfo = next_finfo(find(pid));
+    const int       syscall = entry->entry.nr;
 
-    int             syscall = entry->entry.nr;
+    if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat) {
+	return;			       // return if we don't care about
+				       // tracking said syscall
+    }
+
+    PROCESS_INFO   *pinfo = find(pid);
+
+    FILE_INFO      *finfo = next_finfo(pinfo);
+
+    const int       fd = exit->exit.rval;
+
+    if (fd >= 1024)		       // more than 1024 files open
+				       // concurrently
+    {
+	error(EXIT_FAILURE, errno,
+	      "limit of 1024 open files exceeded for process %d", pid);
+    }
+
+    pinfo->open_files[fd] = pinfo->numfinfo;
 
     if (syscall == SYS_open || syscall == SYS_creat) {
 	finfo->path = get_str_from_process(pid, (void *) entry->entry.args[0]);
@@ -153,7 +169,7 @@ tracer_main(pid_t pid)
 
     int             status;
     pid_t           tracee_pid = pid;
-    PROCESS_INFO    *process_state;
+    PROCESS_INFO   *process_state;
 
     // Starting tracee
     if (ptrace(PTRACE_SYSCALL, tracee_pid, NULL, NULL) < 0) {
@@ -223,7 +239,7 @@ tracer_main(pid_t pid)
 	    }
 	} else if (WIFEXITED(status))  // child process exited
 	{
-		--running;
+	    --running;
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
