@@ -117,6 +117,8 @@ find(pid_t pid)
     return pinfo + i;
 }
 
+uint8_t *hash_file(char *);
+
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
@@ -127,12 +129,19 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
     const int       syscall = entry->entry.nr;
 
-    if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat) {
+    if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat && syscall != SYS_close) {
 	return;			       // return if we don't care about
 				       // tracking said syscall
     }
 
     PROCESS_INFO   *pinfo = find(pid);
+
+    if(syscall == SYS_close) {
+	const int fd = entry->entry.args[0];
+	FILE_INFO *f = pinfo->finfo + pinfo->open_files[fd];
+	f->hash = hash_file(f->path);
+	return;
+    }
 
     FILE_INFO      *finfo = next_finfo(pinfo);
 
