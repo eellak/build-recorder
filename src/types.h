@@ -22,11 +22,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
  * and a hash of the contents.
  * Not all info is added at the same time.
  */
-typedef struct
-{
-    char *path;
-    int purpose;
-    uint8_t *hash;
+typedef struct {
+    char           *path;
+    int             purpose;
+    uint8_t        *hash;
 } FILE_INFO;
 
 /*
@@ -36,15 +35,14 @@ typedef struct
  * the actual information on the files,
  * and, while it's running,
  * a map of open descriptors to file infomation entries,
- * as well as its current syscall stop info struct.
+ * and its current syscall stop info struct.
  */
-typedef struct
-{
-    pid_t pid;
-    char *cmd_line;
-    int numfinfo;
-    FILE_INFO *finfo;
-    int finfo_size;
-    int open_files[1024];
+typedef struct {
+    pid_t           pid;
+    char           *cmd_line;
+    int             numfinfo;
+    FILE_INFO      *finfo;
+    int             finfo_size;
+    int             open_files[1024];
     struct ptrace_syscall_info state;
 } PROCESS_INFO;

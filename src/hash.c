@@ -6,8 +6,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "config.h"
 
-#include <errno.h>		       // errno(3),
-				       // program_invocation_name(3)
+#include <errno.h>		       // errno(3)
 #include <error.h>		       // error(3)
 #include <fcntl.h>		       // open(2)
 #include <limits.h>		       // PATH_MAX
@@ -29,22 +28,20 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #define SHA1_HEXBUF_LEN (2 * SHA1_OUTPUT_LEN + 1)
 
 typedef uint8_t hashsig[SHA1_OUTPUT_LEN];
-typedef char hashstr[SHA1_HEXBUF_LEN];
+typedef char    hashstr[SHA1_HEXBUF_LEN];
 
-char *
+char           *
 hash_to_str(uint8_t *h)
 {
-    char *hash;
-    char *ph;
+    char           *hash;
+    char           *ph;
 
     ph = hash = malloc(SHA1_HEXBUF_LEN);
-    if (hash == NULL)
-    {
+    if (hash == NULL) {
 	return NULL;
     }
 
-    for (int i = 0; i < SHA1_OUTPUT_LEN; i++)
-    {
+    for (int i = 0; i < SHA1_OUTPUT_LEN; i++) {
 #define TO_HEX(i)       "0123456789abcdef"[i]
 	*ph++ = TO_HEX(h[i] >> 4);
 	*ph++ = TO_HEX(h[i] & 0xF);
@@ -53,15 +50,14 @@ hash_to_str(uint8_t *h)
     return hash;
 }
 
-uint8_t *
+uint8_t        *
 hash_str(char *str, off_t strsize)
 {
-    SHA_CTX ctx;
-    unsigned char *hash;
+    SHA_CTX         ctx;
+    unsigned char  *hash;
 
     hash = malloc(SHA1_OUTPUT_LEN);
-    if (hash == NULL)
-    {
+    if (hash == NULL) {
 	error(0, errno, "malloc output on `%s'", str);
 	return NULL;
     }
@@ -73,41 +69,37 @@ hash_str(char *str, off_t strsize)
     return hash;
 }
 
-uint8_t *
+uint8_t        *
 hash_file_contents(char *name, off_t sz)
 {
-    int fd = open(name, O_RDONLY);
+    int             fd = open(name, O_RDONLY);
 
-    if (fd < 0)
-    {
+    if (fd < 0) {
 	error(0, errno, "open `%s'", name);
 	return NULL;
     }
-    char *buf = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
+    char           *buf = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
 
-    if (buf == MAP_FAILED)
-    {
+    if (buf == MAP_FAILED) {
 	error(0, errno, "mmaping `%s'", name);
 	return NULL;
     }
-    int ret = madvise(buf, sz, MADV_SEQUENTIAL);
+    int             ret = madvise(buf, sz, MADV_SEQUENTIAL);
 
-    if (ret)
-    {
+    if (ret) {
 	error(0, errno, "madvise `%s'", name);
     }
 
-    char pre[32];
-    int presize;
+    char            pre[32];
+    int             presize;
 
     presize = sprintf(pre, "blob %ld%c", sz, 0);
 
-    SHA_CTX ctx;
-    unsigned char *hash;
+    SHA_CTX         ctx;
+    unsigned char  *hash;
 
     hash = malloc(SHA1_OUTPUT_LEN);
-    if (hash == NULL)
-    {
+    if (hash == NULL) {
 	error(0, errno, "malloc output on `%s'", name);
 	return NULL;
     }
@@ -122,21 +114,18 @@ hash_file_contents(char *name, off_t sz)
     return hash;
 }
 
-uint8_t *
+uint8_t        *
 hash_file(char *fname)
 {
-    struct stat fstat;
+    struct stat     fstat;
 
-    if (stat(fname, &fstat))
-    {
+    if (stat(fname, &fstat)) {
 	error(0, errno, "getting info on `%s'", fname);
 	return NULL;
     }
-    if (S_ISREG(fstat.st_mode) || S_ISLNK(fstat.st_mode))
-    {
+    if (S_ISREG(fstat.st_mode) || S_ISLNK(fstat.st_mode)) {
 	return hash_file_contents(fname, fstat.st_size);
-    } else
-    {
+    } else {
 	return NULL;
     }
 }

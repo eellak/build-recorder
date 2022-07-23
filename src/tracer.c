@@ -117,7 +117,7 @@ find(pid_t pid)
     return pinfo + i;
 }
 
-uint8_t *hash_file(char *);
+uint8_t        *hash_file(char *);
 
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
@@ -129,16 +129,18 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
     const int       syscall = entry->entry.nr;
 
-    if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat && syscall != SYS_close) {
+    if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat
+	&& syscall != SYS_close) {
 	return;			       // return if we don't care about
-				       // tracking said syscall
+	// tracking said syscall
     }
 
     PROCESS_INFO   *pinfo = find(pid);
 
-    if(syscall == SYS_close) {
-	const int fd = entry->entry.args[0];
-	FILE_INFO *f = pinfo->finfo + pinfo->open_files[fd];
+    if (syscall == SYS_close) {
+	const int       fd = entry->entry.args[0];
+	FILE_INFO      *f = pinfo->finfo + pinfo->open_files[fd];
+
 	f->hash = hash_file(f->path);
 	return;
     }
@@ -148,7 +150,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     const int       fd = exit->exit.rval;
 
     if (fd >= 1024)		       // more than 1024 files open
-				       // concurrently
+	// concurrently
     {
 	error(EXIT_FAILURE, errno,
 	      "limit of 1024 open files exceeded for process %d", pid);
