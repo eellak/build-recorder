@@ -120,33 +120,21 @@ find(pid_t pid)
 uint8_t *hash_file(char *);
 
 static void
-handle_close(int fd, FILE_INFO *f)
+handle_close(FILE_INFO *f)
 {
     f->hash = hash_file(f->path);
 }
 
 static void
-handle_open(pid_t pid, int syscall, int fd, const unsigned long long *args)
+handle_open(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
 {
-
-    if (fd >= 1024)		       // more than 1024 files open
-	// concurrently
-    {
-	error(EXIT_FAILURE, errno,
-	      "limit of 1024 open files exceeded for process %d", pid);
-    }
-
-    PROCESS_INFO *pinfo = find(pid);
-    FILE_INFO *finfo = next_finfo(pinfo);
-
-    pinfo->open_files[fd] = pinfo->numfinfo;
-
-    if (syscall == SYS_open || syscall == SYS_creat) {
 	finfo->path = get_str_from_process(pid, (void *) args[0]);
 	finfo->purpose = args[1];
-	return;
-    }
-    // openat
+}
+
+static void
+handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
+{
     char *rpath = get_str_from_process(pid, (void *) args[1]);
 
     finfo->purpose = args[2];
@@ -187,7 +175,6 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 
     const int syscall = entry->entry.nr;
-    const int fd = exit->exit.rval;
 
     if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat
 	&& syscall != SYS_close) {
@@ -196,12 +183,30 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 
     if (syscall == SYS_close) {
-	handle_close(entry->entry.args[0],
-		     pinfo->finfo + pinfo->open_files[fd]);
+	handle_close(
+		     pinfo->finfo + pinfo->open_files[entry->entry.args[0]]);
 	return;
     }
 
-    handle_open(pid, fd, syscall, entry->entry.args);
+    const int fd = exit->exit.rval;
+
+    if (fd >= 1024)		       // more than 1024 files open
+	// concurrently
+    {
+	error(EXIT_FAILURE, errno,
+	      "limit of 1024 open files exceeded for process %d", pid);
+    }
+
+    PROCESS_INFO *pinfo = find(pid);
+    FILE_INFO *finfo = next_finfo(pinfo);
+
+    pinfo->open_files[fd] = pinfo->numfinfo;
+    
+    if(syscall == SYS_open || syscall == SYS_creat) {
+	handle_open(pid, finfo, entry->entry.args);
+    }
+
+    handle_openat(pid, finfo, entry->entry.args);
 }
 
 static void
