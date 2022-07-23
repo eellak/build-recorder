@@ -24,6 +24,9 @@ AC_CONFIG_HEADERS([config.h])
 dnl Where are the sources
 AC_CONFIG_SRCDIR([src/main.c])
 
+dnl dependencies
+AC_CHECK_LIB(crypto, SHA1_Init)
+
 dnl Checks for programs
 dnl We need a C compiler
 AC_PROG_CC
