@@ -23,9 +23,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
  * Not all info is added at the same time.
  */
 typedef struct {
-    char           *path;
-    int             purpose;
-    uint8_t        *hash;
+    char *path;
+    int purpose;
+    uint8_t *hash;
 } FILE_INFO;
 
 /*
@@ -38,11 +38,11 @@ typedef struct {
  * and its current syscall stop info struct.
  */
 typedef struct {
-    pid_t           pid;
-    char           *cmd_line;
-    int             numfinfo;
-    FILE_INFO      *finfo;
-    int             finfo_size;
-    int             open_files[1024];
+    pid_t pid;
+    char *cmd_line;
+    int numfinfo;
+    FILE_INFO *finfo;
+    int finfo_size;
+    int open_files[1024];
     struct ptrace_syscall_info state;
 } PROCESS_INFO;
