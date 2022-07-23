@@ -128,8 +128,8 @@ handle_close(FILE_INFO *f)
 static void
 handle_open(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
 {
-	finfo->path = get_str_from_process(pid, (void *) args[0]);
-	finfo->purpose = args[1];
+    finfo->path = get_str_from_process(pid, (void *) args[0]);
+    finfo->purpose = args[1];
 }
 
 static void
@@ -140,8 +140,8 @@ handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
     finfo->purpose = args[2];
 
     if ((int) args[0] == AT_FDCWD || *rpath == '/') {	// If it's an
-							// absolute path or
-							// relative to cwd
+	// absolute path or
+	// relative to cwd
 	finfo->path = rpath;
 	return;
     }
@@ -150,13 +150,14 @@ handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
     long dir_path_length = strlen(dir->path);
 
     char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);	// one 
-									// for 
-									// '/' 
-									// and 
-									// one 
-									// for 
-									// null 
-									// terminator
+									// 
+    // for 
+    // '/' 
+    // and 
+    // one 
+    // for 
+    // null 
+    // terminator
 
     strcpy(buf, dir->path);
     buf[dir_path_length] = '/';
@@ -183,8 +184,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 
     if (syscall == SYS_close) {
-	handle_close(
-		     pinfo->finfo + pinfo->open_files[entry->entry.args[0]]);
+	handle_close(pinfo->finfo + pinfo->open_files[entry->entry.args[0]]);
 	return;
     }
 
@@ -201,8 +201,8 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     FILE_INFO *finfo = next_finfo(pinfo);
 
     pinfo->open_files[fd] = pinfo->numfinfo;
-    
-    if(syscall == SYS_open || syscall == SYS_creat) {
+
+    if (syscall == SYS_open || syscall == SYS_creat) {
 	handle_open(pid, finfo, entry->entry.args);
     }
 
