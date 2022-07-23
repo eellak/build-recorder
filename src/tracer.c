@@ -169,6 +169,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 static void
 tracer_main(pid_t pid)
+
 {
     waitpid(pid, NULL, 0);
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
@@ -274,6 +275,7 @@ trace(pid_t pid)
 
 void
 run_tracee(char **av)
+
 {
     ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
     execvp(*av, av);

@@ -49,6 +49,8 @@
 --tab-size8
 --use-tabs
 
+-di1
+
 /* commonly used types */
 -TFILE
 -Tcomparison_fn_t
