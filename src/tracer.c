@@ -96,7 +96,7 @@ get_str_from_process(pid_t pid, void *addr)
 		break;
 	}
 	++i;
-    } while (*dest);
+    } while (dest[-1]);
 
     return strdup(buf);
 }
