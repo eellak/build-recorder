@@ -31,20 +31,17 @@ AC_CHECK_LIB(crypto, SHA1_Init)
 
 dnl Checks for headers
 AC_CHECK_HEADERS([
-	sys/ptrace.h
 	linux/ptrace.h
-	sys/signal.h
-	sys/syscall.h
-	sys/wait.h
-])
-
-AC_CHECK_HEADERS([
-	sysexits.h
+	openssl/sha.h
 	sys/mman.h
+	sys/ptrace.h
+	sys/signal.h
 	sys/stat.h
+	sys/syscall.h
 	sys/sysinfo.h
 	sys/types.h
-	openssl/sha.h
+	sys/wait.h
+	sysexits.h
 ])
 
 dnl Checks for typedefs and structures
@@ -55,7 +52,7 @@ AC_CHECK_TYPES(m4_normalize([
 
 AC_CHECK_TYPE([SHA_CTX],,, [#include <openssl/sha.h>])
 
-AC_CHECK_TYPE([PATH_MAX],,, [#include <limits.h>])
+AC_CHECK_DECL([PATH_MAX],,, [#include <limits.h>])
 
 AC_CHECK_DECLS(m4_normalize([
 	PTRACE_GET_SYSCALL_INFO,
