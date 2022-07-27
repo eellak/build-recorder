@@ -36,13 +36,13 @@ int pinfo_size;
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
 
-#include <stdio.h> // for test, to be removed
+#include <stdio.h>		       // for test, to be removed
 
 void
 record_file(FILE_INFO *f)
 {
-	//TODO
-	printf("recorded file:%s with checksum:%d\n", f->path, *f->hash);
+    // TODO
+    printf("recorded file:%s with checksum:%d\n", f->path, *f->hash);
 }
 
 /*
@@ -161,6 +161,7 @@ handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
 
     char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);	// one 
 									// 
+    // 
     // for 
     // '/' 
     // and 
@@ -209,8 +210,9 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
     PROCESS_INFO *pinfo = find(pid);
     FILE_INFO *finfo;
-    if(fd == pinfo->finfo_size) {
-    	finfo = next_finfo(pinfo);
+
+    if (fd == pinfo->finfo_size) {
+	finfo = next_finfo(pinfo);
     } else {
 	finfo = pinfo->finfo + fd;
     }
