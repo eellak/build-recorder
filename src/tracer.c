@@ -36,6 +36,15 @@ int pinfo_size;
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
 
+#include <stdio.h> // for test, to be removed
+
+void
+record_file(FILE_INFO *f)
+{
+	//TODO
+	printf("recorded file:%s with checksum:%d\n", f->path, *f->hash);
+}
+
 /*
  * memory allocators for pinfo
  */
@@ -123,6 +132,7 @@ static void
 handle_close(FILE_INFO *f)
 {
     f->hash = hash_file(f->path);
+    record_file(f);
 }
 
 static void
@@ -146,7 +156,7 @@ handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
 	return;
     }
 
-    FILE_INFO *dir = pinfo->finfo + pinfo->open_files[args[0]];
+    FILE_INFO *dir = pinfo->finfo + args[0];
     long dir_path_length = strlen(dir->path);
 
     char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);	// one 
@@ -184,7 +194,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 
     if (syscall == SYS_close) {
-	handle_close(pinfo->finfo + pinfo->open_files[entry->entry.args[0]]);
+	handle_close(pinfo->finfo + entry->entry.args[0]);
 	return;
     }
 
@@ -198,9 +208,12 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     }
 
     PROCESS_INFO *pinfo = find(pid);
-    FILE_INFO *finfo = next_finfo(pinfo);
-
-    pinfo->open_files[fd] = pinfo->numfinfo;
+    FILE_INFO *finfo;
+    if(fd == pinfo->finfo_size) {
+    	finfo = next_finfo(pinfo);
+    } else {
+	finfo = pinfo->finfo + fd;
+    }
 
     if (syscall == SYS_open || syscall == SYS_creat) {
 	handle_open(pid, finfo, entry->entry.args);
