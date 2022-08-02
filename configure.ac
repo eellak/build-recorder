@@ -30,7 +30,7 @@ dnl Checks for libraries
 AC_CHECK_LIB(crypto, SHA1_Init)
 
 dnl Checks for headers
-AC_CHECK_HEADERS([
+AC_CHECK_HEADERS([m4_normalize([
 	linux/ptrace.h
 	openssl/sha.h
 	sys/mman.h
@@ -42,7 +42,7 @@ AC_CHECK_HEADERS([
 	sys/types.h
 	sys/wait.h
 	sysexits.h
-])
+])])
 
 dnl Checks for typedefs and structures
 AC_CHECK_TYPES(m4_normalize([
