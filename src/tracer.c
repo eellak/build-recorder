@@ -29,12 +29,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
  * its size and the array size
  */
 
-PROCESS_INFO   *pinfo;
-int             numpinfo;
-int             pinfo_size;
+PROCESS_INFO *pinfo;
+int numpinfo;
+int pinfo_size;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
+
+#include <stdio.h>		       // for test, to be removed
+
+void
+record_file(FILE_INFO *f)
+{
+    // TODO
+    printf("recorded file:%s with checksum:%d\n", f->path, *f->hash);
+}
 
 /*
  * memory allocators for pinfo
@@ -48,7 +57,7 @@ init_pinfo(void)
     numpinfo = -1;
 }
 
-PROCESS_INFO   *
+PROCESS_INFO *
 next_pinfo(void)
 {
     if (numpinfo < pinfo_size)
@@ -61,7 +70,7 @@ next_pinfo(void)
     return &(pinfo[++numpinfo]);
 }
 
-FILE_INFO      *
+FILE_INFO *
 next_finfo(PROCESS_INFO *pi)
 {
     if (pi->numfinfo < pi->finfo_size)
@@ -75,17 +84,17 @@ next_finfo(PROCESS_INFO *pi)
     return &(pi->finfo[++(pi->numfinfo)]);
 }
 
-char           *
+char *
 get_str_from_process(pid_t pid, void *addr)
 {
-    static char     buf[PATH_MAX];
-    char           *dest = buf;
+    static char buf[PATH_MAX];
+    char *dest = buf;
     union {
-	long            lval;
-	char            cval[sizeof (long)];
+	long lval;
+	char cval[sizeof (long)];
     } data;
 
-    size_t          i = 0;
+    size_t i = 0;
 
     do {
 	data.lval =
@@ -101,10 +110,10 @@ get_str_from_process(pid_t pid, void *addr)
     return strdup(buf);
 }
 
-PROCESS_INFO   *
+PROCESS_INFO *
 find(pid_t pid)
 {
-    size_t          i = numpinfo;
+    size_t i = numpinfo;
 
     while (i >= 0 && pinfo[i].pid != pid) {
 	--i;
@@ -117,7 +126,57 @@ find(pid_t pid)
     return pinfo + i;
 }
 
-uint8_t        *hash_file(char *);
+uint8_t *hash_file(char *);
+
+static void
+handle_close(FILE_INFO *f)
+{
+    f->hash = hash_file(f->path);
+    record_file(f);
+}
+
+static void
+handle_open(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
+{
+    finfo->path = get_str_from_process(pid, (void *) args[0]);
+    finfo->purpose = args[1];
+}
+
+static void
+handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
+{
+    char *rpath = get_str_from_process(pid, (void *) args[1]);
+
+    finfo->purpose = args[2];
+
+    if ((int) args[0] == AT_FDCWD || *rpath == '/') {	// If it's an
+	// absolute path or
+	// relative to cwd
+	finfo->path = rpath;
+	return;
+    }
+
+    FILE_INFO *dir = pinfo->finfo + args[0];
+    long dir_path_length = strlen(dir->path);
+
+    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);	// one 
+									// 
+    // 
+    // for 
+    // '/' 
+    // and 
+    // one 
+    // for 
+    // null 
+    // terminator
+
+    strcpy(buf, dir->path);
+    buf[dir_path_length] = '/';
+    strcpy(buf + dir_path_length + 1, rpath);
+    free(rpath);
+
+    finfo->path = buf;
+}
 
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
@@ -127,7 +186,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	return;			       // return on syscall failure
     }
 
-    const int       syscall = entry->entry.nr;
+    const int syscall = entry->entry.nr;
 
     if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat
 	&& syscall != SYS_close) {
@@ -135,19 +194,12 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	// tracking said syscall
     }
 
-    PROCESS_INFO   *pinfo = find(pid);
-
     if (syscall == SYS_close) {
-	const int       fd = entry->entry.args[0];
-	FILE_INFO      *f = pinfo->finfo + pinfo->open_files[fd];
-
-	f->hash = hash_file(f->path);
+	handle_close(pinfo->finfo + entry->entry.args[0]);
 	return;
     }
 
-    FILE_INFO      *finfo = next_finfo(pinfo);
-
-    const int       fd = exit->exit.rval;
+    const int fd = exit->exit.rval;
 
     if (fd >= 1024)		       // more than 1024 files open
 	// concurrently
@@ -156,20 +208,24 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	      "limit of 1024 open files exceeded for process %d", pid);
     }
 
-    pinfo->open_files[fd] = pinfo->numfinfo;
+    PROCESS_INFO *pinfo = find(pid);
+    FILE_INFO *finfo;
+
+    if (fd == pinfo->finfo_size) {
+	finfo = next_finfo(pinfo);
+    } else {
+	finfo = pinfo->finfo + fd;
+    }
 
     if (syscall == SYS_open || syscall == SYS_creat) {
-	finfo->path = get_str_from_process(pid, (void *) entry->entry.args[0]);
-	finfo->purpose = entry->entry.args[1];
-    } else if (syscall == SYS_openat) {
-	finfo->path = get_str_from_process(pid, (void *) entry->entry.args[1]);
-	finfo->purpose = entry->entry.args[2];
+	handle_open(pid, finfo, entry->entry.args);
     }
+
+    handle_openat(pid, finfo, entry->entry.args);
 }
 
 static void
 tracer_main(pid_t pid)
-
 {
     waitpid(pid, NULL, 0);
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
@@ -177,11 +233,11 @@ tracer_main(pid_t pid)
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
     struct ptrace_syscall_info info;
-    static size_t   running = 1;
+    static size_t running = 1;
 
-    int             status;
-    pid_t           tracee_pid = pid;
-    PROCESS_INFO   *process_state;
+    int status;
+    pid_t tracee_pid = pid;
+    PROCESS_INFO *process_state;
 
     // Starting tracee
     if (ptrace(PTRACE_SYSCALL, tracee_pid, NULL, NULL) < 0) {
@@ -234,7 +290,7 @@ tracer_main(pid_t pid)
 		case SIGSTOP:
 		    ++running;
 
-		    PROCESS_INFO   *pi = next_pinfo();
+		    PROCESS_INFO *pi = next_pinfo();
 
 		    pi->pid = pid;
 		    pi->finfo_size = DEFAULT_FINFO_SIZE;
@@ -261,7 +317,7 @@ tracer_main(pid_t pid)
 void
 trace(pid_t pid)
 {
-    PROCESS_INFO   *pi;
+    PROCESS_INFO *pi;
 
     pi = next_pinfo();
     pi->pid = pid;
@@ -275,7 +331,6 @@ trace(pid_t pid)
 
 void
 run_tracee(char **av)
-
 {
     ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
     execvp(*av, av);
@@ -285,7 +340,7 @@ run_tracee(char **av)
 void
 run_and_record_fnames(char **av)
 {
-    pid_t           pid;
+    pid_t pid;
 
     pid = fork();
     if (pid < 0)

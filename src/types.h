@@ -33,9 +33,8 @@ typedef struct {
  * the command line (including all the arguments)
  * the number of files recorded,
  * the actual information on the files,
- * and, while it's running,
- * a map of open descriptors to file infomation entries,
- * and its current syscall stop info struct.
+ * and, while it's running, its current syscall
+ * stop info struct.
  */
 typedef struct {
     pid_t           pid;
@@ -43,6 +42,5 @@ typedef struct {
     int             numfinfo;
     FILE_INFO      *finfo;
     int             finfo_size;
-    int             open_files[1024];
     struct ptrace_syscall_info state;
 } PROCESS_INFO;
