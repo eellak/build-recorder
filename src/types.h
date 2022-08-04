@@ -14,6 +14,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <unistd.h>
 
 #include <sys/ptrace.h>
+#include        <linux/ptrace.h>
 
 /*
  * For each file, we keep its name/path
