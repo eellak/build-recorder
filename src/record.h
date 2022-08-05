@@ -1,4 +1,4 @@
-#include "types.h" // pid_t
+#include <sys/types.h> // pid_t
 
 /* record.c */
 void record_start(char *fname);
