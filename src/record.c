@@ -6,7 +6,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	"config.h"
 
-#include	"types.h"
 #include	"record.h"
 
 #include	<stdio.h>
@@ -68,6 +67,6 @@ record_process_end(pid_t pid)
 }
 
 void
-record_fileuse(pid_t pid, const FILE_INFO *file)
+record_fileuse(pid_t pid, char *path, int purpose, uint8_t *hash)
 {
 }
