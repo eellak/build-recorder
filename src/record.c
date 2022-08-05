@@ -68,6 +68,6 @@ record_process_end(pid_t pid)
 }
 
 void
-record_fileuse(pid_t pid, char *path, int purpose, uint8_t hash)
+record_fileuse(pid_t pid, const FILE_INFO *file)
 {
 }
