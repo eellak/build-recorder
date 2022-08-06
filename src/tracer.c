@@ -84,6 +84,16 @@ next_finfo(PROCESS_INFO *pi)
     return &(pi->finfo[++(pi->numfinfo)]);
 }
 
+FILE_INFO *
+finfo_at(PROCESS_INFO *pi, int index)
+{
+    if (index == pinfo->finfo_size) {
+	return next_finfo(pinfo);
+    } else {
+	return pinfo->finfo + index;
+    }
+}
+
 char *
 get_str_from_process(pid_t pid, void *addr)
 {
@@ -126,32 +136,30 @@ find(pid_t pid)
     return pinfo + i;
 }
 
-uint8_t *hash_file(char *);
+// syscall handlers
 
 static void
-handle_close(FILE_INFO *f)
+handle_open(pid_t pid, const unsigned long long *args, int fd)
 {
-    f->hash = hash_file(f->path);
-    record_file(f);
-}
+    FILE_INFO *finfo = finfo_at(find(pid), fd);
 
-static void
-handle_open(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
-{
     finfo->path = get_str_from_process(pid, (void *) args[0]);
     finfo->purpose = args[1];
 }
 
 static void
-handle_creat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
+handle_creat(pid_t pid, void *path, int fd)
 {
-    finfo->path = get_str_from_process(pid, (void *) args[0]);
+    FILE_INFO *finfo = finfo_at(find(pid), fd);
+
+    finfo->path = get_str_from_process(pid, path);
     finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
 }
 
 static void
-handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
+handle_openat(pid_t pid, const unsigned long long *args, int fd)
 {
+    FILE_INFO *finfo = finfo_at(find(pid), fd);
     char *rpath = get_str_from_process(pid, (void *) args[1]);
 
     finfo->purpose = args[2];
@@ -171,6 +179,7 @@ handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
     // 
     // 
     // 
+    // 
     // for 
     // '/' 
     // and 
@@ -187,6 +196,17 @@ handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
     finfo->path = buf;
 }
 
+uint8_t *hash_file(char *);
+
+static void
+handle_close(pid_t pid, int fd)
+{
+    FILE_INFO *finfo = find(pid)->finfo + fd;
+
+    finfo->hash = hash_file(finfo->path);
+    record_file(finfo);
+}
+
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
@@ -195,42 +215,21 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	return;			       // return on syscall failure
     }
 
-    const int syscall = entry->entry.nr;
-
-    if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat
-	&& syscall != SYS_close) {
-	return;			       // return if we don't care about
-	// tracking said syscall
-    }
-
-    if (syscall == SYS_close) {
-	handle_close(pinfo->finfo + entry->entry.args[0]);
-	return;
-    }
-
-    const int fd = exit->exit.rval;
-
-    PROCESS_INFO *pinfo = find(pid);
-    FILE_INFO *finfo;
-
-    if (fd == pinfo->finfo_size) {
-	finfo = next_finfo(pinfo);
-    } else {
-	finfo = pinfo->finfo + fd;
-    }
-
-    switch (syscall) {
+    switch (entry->entry.nr) {
 	case SYS_open:
-	    handle_open(pid, finfo, entry->entry.args);
+	    handle_open(pid, entry->entry.args, exit->exit.rval);
 	    break;
 	case SYS_creat:
-	    handle_creat(pid, finfo, entry->entry.args);
+	    handle_creat(pid, (void *) entry->entry.args[0], exit->exit.rval);
 	    break;
 	case SYS_openat:
-	    handle_openat(pid, finfo, entry->entry.args);
+	    handle_openat(pid, entry->entry.args, exit->exit.rval);
+	    break;
+	case SYS_close:
+	    handle_close(pid, (int) entry->entry.args[0]);
 	    break;
 	default:
-	    error(EXIT_FAILURE, errno, "Invalid syscall");
+	    return;
     }
 }
 
