@@ -210,13 +210,6 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
     const int fd = exit->exit.rval;
 
-    if (fd >= 1024)		       // more than 1024 files open
-	// concurrently
-    {
-	error(EXIT_FAILURE, errno,
-	      "limit of 1024 open files exceeded for process %d", pid);
-    }
-
     PROCESS_INFO *pinfo = find(pid);
     FILE_INFO *finfo;
 
