@@ -23,6 +23,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/wait.h>
 
 #include	"types.h"
+#include	"record.h"
 
 /*
  * variables for the list of processes,
@@ -35,16 +36,6 @@ int pinfo_size;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
-
-#include <stdio.h>		       // for test, to be removed
-
-void
-record_file(pid_t pid, FILE_INFO *f)
-{
-    // TODO
-    printf("process %d recorded file:%s with checksum:%d\n", pid, f->path,
-	   *f->hash);
-}
 
 /*
  * memory allocators for pinfo
@@ -151,6 +142,8 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     void *path;
     int flags;
     int dirfd;
+    FILE_INFO *finfo;
+    FILE_INFO *dir;
 
     switch (entry->entry.nr) {
 	case SYS_open:
@@ -159,7 +152,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    FILE_INFO *finfo = finfo_at(find(pid), fd);
+	    finfo = finfo_at(find(pid), fd);
 
 	    finfo->path = get_str_from_process(pid, path);
 	    finfo->purpose = flags;
@@ -169,7 +162,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    fd = (int) exit->exit.rval;
 	    path = (void *) entry->entry.args[0];
 
-	    FILE_INFO *finfo = finfo_at(find(pid), fd);
+	    finfo = finfo_at(find(pid), fd);
 
 	    finfo->path = get_str_from_process(pid, path);
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
@@ -181,7 +174,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    FILE_INFO *finfo = finfo_at(find(pid), fd);
+	    finfo = finfo_at(find(pid), fd);
 	    char *rpath = get_str_from_process(pid, path);
 
 	    finfo->purpose = flags;
@@ -193,24 +186,12 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 		break;
 	    }
 
-	    FILE_INFO *dir = pinfo->finfo + dirfd;
+	    dir = pinfo->finfo + dirfd;
 	    long dir_path_length = strlen(dir->path);
 
-	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);	// one 
-										// 
-	    // 
-	    // 
-	    // 
-	    // 
-	    // 
-	    // 
-	    // for 
-	    // '/' 
-	    // and 
-	    // one 
-	    // for 
-	    // null 
-	    // terminator
+	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);
+
+	    // one for '/' and one for null terminator
 
 	    strcpy(buf, dir->path);
 	    buf[dir_path_length] = '/';
@@ -223,10 +204,10 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    // int close(int fd);
 	    int fd = (int) entry->entry.args[0];
 
-	    FILE_INFO *finfo = find(pid)->finfo + fd;
+	    finfo = find(pid)->finfo + fd;
 
 	    finfo->hash = hash_file(finfo->path);
-	    record_file(pid, finfo);
+	    record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
 	    break;
 	default:
 	    return;
