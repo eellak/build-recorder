@@ -143,6 +143,13 @@ handle_open(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
 }
 
 static void
+handle_creat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
+{
+    finfo->path = get_str_from_process(pid, (void *) args[0]);
+    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
+}
+
+static void
 handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
 {
     char *rpath = get_str_from_process(pid, (void *) args[1]);
@@ -161,6 +168,8 @@ handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
 
     char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);	// one 
 									// 
+    // 
+    // 
     // 
     // for 
     // '/' 
@@ -210,11 +219,19 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	finfo = pinfo->finfo + fd;
     }
 
-    if (syscall == SYS_open || syscall == SYS_creat) {
-	handle_open(pid, finfo, entry->entry.args);
+    switch (syscall) {
+	case SYS_open:
+	    handle_open(pid, finfo, entry->entry.args);
+	    break;
+	case SYS_creat:
+	    handle_creat(pid, finfo, entry->entry.args);
+	    break;
+	case SYS_openat:
+	    handle_openat(pid, finfo, entry->entry.args);
+	    break;
+	default:
+	    error(EXIT_FAILURE, errno, "Invalid syscall");
     }
-
-    handle_openat(pid, finfo, entry->entry.args);
 }
 
 static void
