@@ -45,6 +45,13 @@ record_file(FILE_INFO *f)
     printf("recorded file:%s with checksum:%d\n", f->path, *f->hash);
 }
 
+void
+record_rename(const char *oldpath, const char *newpath)
+{
+    // TODO
+    printf("file %s renamed/moved to %s\n", oldpath, newpath);
+}
+
 /*
  * memory allocators for pinfo
  */
@@ -180,6 +187,7 @@ handle_openat(pid_t pid, const unsigned long long *args, int fd)
     // 
     // 
     // 
+    // 
     // for 
     // '/' 
     // and 
@@ -208,6 +216,12 @@ handle_close(pid_t pid, int fd)
 }
 
 static void
+handle_rename(const char *oldpath, const char *newpath)
+{
+    record_rename(oldpath, newpath);
+}
+
+static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
 {
@@ -227,6 +241,10 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    break;
 	case SYS_close:
 	    handle_close(pid, (int) entry->entry.args[0]);
+	    break;
+	case SYS_rename:
+	    handle_rename((char *) entry->entry.args[0],
+			  (char *) entry->entry.args[1]);
 	    break;
 	default:
 	    return;
