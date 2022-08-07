@@ -179,9 +179,8 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo->purpose = flags;
 
-	    if (dirfd == AT_FDCWD || *rpath == '/') {	// If it's an
-		// absolute path or
-		// relative to cwd
+	    if (dirfd == AT_FDCWD || *rpath == '/') {
+		// If it's an absolute path or relative to cwd
 		finfo->path = rpath;
 		break;
 	    }
