@@ -1,7 +1,6 @@
 #include <sys/types.h> // pid_t
 #include <stdint.h> // uint8_t
 
-/* record.c */
 void record_start(char *fname);
 void record_process_start(pid_t pid, char *cmd_line);
 void record_process_end(pid_t pid);
