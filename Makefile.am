@@ -10,5 +10,6 @@ bin_PROGRAMS = build_recorder
 build_recorder_SOURCES = \
     src/tracer.c \
     src/hash.c \
+    src/record.c \
     src/main.c
 
