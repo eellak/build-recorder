@@ -23,6 +23,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/wait.h>
 
 #include	"types.h"
+#include	"record.h"
 
 /*
  * variables for the list of processes,
@@ -35,15 +36,6 @@ int pinfo_size;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
-
-#include <stdio.h>		       // for test, to be removed
-
-void
-record_file(FILE_INFO *f)
-{
-    // TODO
-    printf("recorded file:%s with checksum:%d\n", f->path, *f->hash);
-}
 
 /*
  * memory allocators for pinfo
@@ -82,6 +74,16 @@ next_finfo(PROCESS_INFO *pi)
 	error(EXIT_FAILURE, errno, "reallocating file info array in process %d",
 	      pi->pid);
     return &(pi->finfo[++(pi->numfinfo)]);
+}
+
+FILE_INFO *
+finfo_at(PROCESS_INFO *pi, int index)
+{
+    if (index == pinfo->finfo_size) {
+	return next_finfo(pinfo);
+    } else {
+	return pinfo->finfo + index;
+    }
 }
 
 char *
@@ -129,65 +131,6 @@ find(pid_t pid)
 uint8_t *hash_file(char *);
 
 static void
-handle_close(FILE_INFO *f)
-{
-    f->hash = hash_file(f->path);
-    record_file(f);
-}
-
-static void
-handle_open(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
-{
-    finfo->path = get_str_from_process(pid, (void *) args[0]);
-    finfo->purpose = args[1];
-}
-
-static void
-handle_creat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
-{
-    finfo->path = get_str_from_process(pid, (void *) args[0]);
-    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
-}
-
-static void
-handle_openat(pid_t pid, FILE_INFO *finfo, const unsigned long long *args)
-{
-    char *rpath = get_str_from_process(pid, (void *) args[1]);
-
-    finfo->purpose = args[2];
-
-    if ((int) args[0] == AT_FDCWD || *rpath == '/') {	// If it's an
-	// absolute path or
-	// relative to cwd
-	finfo->path = rpath;
-	return;
-    }
-
-    FILE_INFO *dir = pinfo->finfo + args[0];
-    long dir_path_length = strlen(dir->path);
-
-    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);	// one 
-									// 
-    // 
-    // 
-    // 
-    // for 
-    // '/' 
-    // and 
-    // one 
-    // for 
-    // null 
-    // terminator
-
-    strcpy(buf, dir->path);
-    buf[dir_path_length] = '/';
-    strcpy(buf + dir_path_length + 1, rpath);
-    free(rpath);
-
-    finfo->path = buf;
-}
-
-static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
 {
@@ -195,42 +138,78 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	return;			       // return on syscall failure
     }
 
-    const int syscall = entry->entry.nr;
-
-    if (syscall != SYS_open && syscall != SYS_creat && syscall != SYS_openat
-	&& syscall != SYS_close) {
-	return;			       // return if we don't care about
-	// tracking said syscall
-    }
-
-    if (syscall == SYS_close) {
-	handle_close(pinfo->finfo + entry->entry.args[0]);
-	return;
-    }
-
-    const int fd = exit->exit.rval;
-
-    PROCESS_INFO *pinfo = find(pid);
+    int fd;
+    void *path;
+    int flags;
+    int dirfd;
     FILE_INFO *finfo;
+    FILE_INFO *dir;
 
-    if (fd == pinfo->finfo_size) {
-	finfo = next_finfo(pinfo);
-    } else {
-	finfo = pinfo->finfo + fd;
-    }
-
-    switch (syscall) {
+    switch (entry->entry.nr) {
 	case SYS_open:
-	    handle_open(pid, finfo, entry->entry.args);
+	    // int open(const char *pathname, int flags, ...);
+	    fd = (int) exit->exit.rval;
+	    path = (void *) entry->entry.args[0];
+	    flags = (int) entry->entry.args[1];
+
+	    finfo = finfo_at(find(pid), fd);
+
+	    finfo->path = get_str_from_process(pid, path);
+	    finfo->purpose = flags;
 	    break;
 	case SYS_creat:
-	    handle_creat(pid, finfo, entry->entry.args);
+	    // int creat(const char *pathname, ...);
+	    fd = (int) exit->exit.rval;
+	    path = (void *) entry->entry.args[0];
+
+	    finfo = finfo_at(find(pid), fd);
+
+	    finfo->path = get_str_from_process(pid, path);
+	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
 	    break;
 	case SYS_openat:
-	    handle_openat(pid, finfo, entry->entry.args);
+	    // int openat(int dirfd, const char *pathname, int flags, ...);
+	    fd = (int) exit->exit.rval;
+	    dirfd = (int) entry->entry.args[0];
+	    path = (void *) entry->entry.args[1];
+	    flags = (int) entry->entry.args[2];
+
+	    finfo = finfo_at(find(pid), fd);
+	    char *rpath = get_str_from_process(pid, path);
+
+	    finfo->purpose = flags;
+
+	    if (dirfd == AT_FDCWD || *rpath == '/') {
+		// If it's an absolute path or relative to cwd
+		finfo->path = rpath;
+		break;
+	    }
+
+	    dir = pinfo->finfo + dirfd;
+	    long dir_path_length = strlen(dir->path);
+
+	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);
+
+	    // one for '/' and one for null terminator
+
+	    strcpy(buf, dir->path);
+	    buf[dir_path_length] = '/';
+	    strcpy(buf + dir_path_length + 1, rpath);
+	    free(rpath);
+
+	    finfo->path = buf;
+	    break;
+	case SYS_close:
+	    // int close(int fd);
+	    int fd = (int) entry->entry.args[0];
+
+	    finfo = find(pid)->finfo + fd;
+
+	    finfo->hash = hash_file(finfo->path);
+	    record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
 	    break;
 	default:
-	    error(EXIT_FAILURE, errno, "Invalid syscall");
+	    return;
     }
 }
 
