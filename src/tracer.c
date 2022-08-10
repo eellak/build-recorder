@@ -203,15 +203,10 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo = find(pid)->finfo + fd;
 
-<<<<<<< HEAD
-	    if(finfo->path != (char *) 0) {
-		finfo->hash = hash_file(finfo->path);
+	    if (finfo->path != (char *) 0) {
+		finfo->hash = get_file_hash(finfo->path);
 		record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
 	    }
-=======
-	    finfo->hash = get_file_hash(finfo->path);
-	    record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
->>>>>>> main
 	    break;
 	default:
 	    return;
