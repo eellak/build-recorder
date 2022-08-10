@@ -27,14 +27,18 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #define SHA1_OUTPUT_LEN 20
 #define SHA1_HEXBUF_LEN (2 * SHA1_OUTPUT_LEN + 1)
 
-typedef uint8_t hashsig[SHA1_OUTPUT_LEN];
-typedef char    hashstr[SHA1_HEXBUF_LEN];
+#define	ZERO_FILE_HASH	"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
 
-char           *
+#include	"hash.h"
+
+typedef uint8_t hashsig[SHA1_OUTPUT_LEN];
+typedef char hashstr[SHA1_HEXBUF_LEN];
+
+static char *
 hash_to_str(uint8_t *h)
 {
-    char           *hash;
-    char           *ph;
+    char *hash;
+    char *ph;
 
     ph = hash = malloc(SHA1_HEXBUF_LEN);
     if (hash == NULL) {
@@ -50,53 +54,34 @@ hash_to_str(uint8_t *h)
     return hash;
 }
 
-uint8_t        *
-hash_str(char *str, off_t strsize)
+static uint8_t *
+hash_file_contents(char *name, size_t sz)
 {
-    SHA_CTX         ctx;
-    unsigned char  *hash;
-
-    hash = malloc(SHA1_OUTPUT_LEN);
-    if (hash == NULL) {
-	error(0, errno, "malloc output on `%s'", str);
-	return NULL;
-    }
-
-    SHA1_Init(&ctx);
-    SHA1_Update(&ctx, str, strsize);
-    SHA1_Final(hash, &ctx);
-
-    return hash;
-}
-
-uint8_t        *
-hash_file_contents(char *name, off_t sz)
-{
-    int             fd = open(name, O_RDONLY);
+    int fd = open(name, O_RDONLY);
 
     if (fd < 0) {
 	error(0, errno, "open `%s'", name);
 	return NULL;
     }
-    char           *buf = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
+    char *buf = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
 
     if (buf == MAP_FAILED) {
 	error(0, errno, "mmaping `%s'", name);
 	return NULL;
     }
-    int             ret = madvise(buf, sz, MADV_SEQUENTIAL);
+    int ret = madvise(buf, sz, MADV_SEQUENTIAL);
 
     if (ret) {
 	error(0, errno, "madvise `%s'", name);
     }
 
-    char            pre[32];
-    int             presize;
+    char pre[32];
+    size_t presize;
 
-    presize = sprintf(pre, "blob %ld%c", sz, 0);
+    presize = sprintf(pre, "blob %lu%c", sz, 0);
 
-    SHA_CTX         ctx;
-    unsigned char  *hash;
+    SHA_CTX ctx;
+    unsigned char *hash;
 
     hash = malloc(SHA1_OUTPUT_LEN);
     if (hash == NULL) {
@@ -114,17 +99,25 @@ hash_file_contents(char *name, off_t sz)
     return hash;
 }
 
-uint8_t        *
-hash_file(char *fname)
+char *
+get_file_hash(char *fname)
 {
-    struct stat     fstat;
+    struct stat fstat;
 
     if (stat(fname, &fstat)) {
 	error(0, errno, "getting info on `%s'", fname);
 	return NULL;
     }
     if (S_ISREG(fstat.st_mode) || S_ISLNK(fstat.st_mode)) {
-	return hash_file_contents(fname, fstat.st_size);
+	size_t sz = fstat.st_size;
+
+	if (sz > 0) {
+	    uint8_t *h = hash_file_contents(fname, sz);
+
+	    return hash_to_str(h);
+	} else {
+	    return strdup(ZERO_FILE_HASH);
+	}
     } else {
 	return NULL;
     }
