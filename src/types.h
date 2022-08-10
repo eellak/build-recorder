@@ -10,7 +10,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <stdint.h>
 #include <unistd.h>
 
 #include <sys/ptrace.h>
@@ -27,7 +26,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 typedef struct {
     char *path;
     int purpose;
-    uint8_t *hash;
+    char *hash;
 } FILE_INFO;
 
 /*

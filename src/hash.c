@@ -31,9 +31,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	"hash.h"
 
-typedef uint8_t hashsig[SHA1_OUTPUT_LEN];
-typedef char hashstr[SHA1_HEXBUF_LEN];
-
 static char *
 hash_to_str(uint8_t *h)
 {
