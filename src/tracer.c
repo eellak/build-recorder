@@ -10,7 +10,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<errno.h>
 #include	<error.h>
 #include	<limits.h>
-#include	<stdint.h>
 #include	<stdlib.h>
 #include	<string.h>
 #include	<unistd.h>
@@ -23,6 +22,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/wait.h>
 
 #include	"types.h"
+#include	"hash.h"
 #include	"record.h"
 
 /*
@@ -128,8 +128,6 @@ find(pid_t pid)
     return pinfo + i;
 }
 
-uint8_t *hash_file(char *);
-
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
@@ -205,7 +203,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo = find(pid)->finfo + fd;
 
-	    finfo->hash = hash_file(finfo->path);
+	    finfo->hash = get_file_hash(finfo->path);
 	    record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
 	    break;
 	default:
