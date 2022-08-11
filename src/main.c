@@ -13,12 +13,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sysexits.h>
 #include <unistd.h>
 
-void            run_and_record_fnames(char **av);
+#include "record.h"
+
+void run_and_record_fnames(char **av);
 
 void
 record_cmdline(FILE *fout, char **ap)
 {
-    char          **p;
+    char **p;
 
     for (p = ap; *p != NULL; p++)
 	(void) fprintf(fout, "%s ", *p);
@@ -28,7 +30,7 @@ record_cmdline(FILE *fout, char **ap)
 void
 record_env(FILE *fout, char **ep)
 {
-    char          **p;
+    char **p;
 
     for (p = ep; *p != NULL; p++)
 	(void) fprintf(fout, "%s\n", *p);
@@ -39,6 +41,8 @@ main(int argc, char **argv, char **envp)
 {
     if (argc < 2)
 	error(EX_USAGE, 0, "missing command to record");
+
+    record_start("output.txt");
 
     record_env(stdout, envp);
     record_cmdline(stdout, ++argv);
