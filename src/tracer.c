@@ -9,7 +9,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	<errno.h>
 #include	<error.h>
-#include	<limits.h>
 #include	<stdlib.h>
 #include	<string.h>
 #include	<unistd.h>
@@ -20,6 +19,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/signal.h>
 #include	<sys/syscall.h>
 #include	<sys/wait.h>
+#include	<linux/limits.h>
 
 #include	"types.h"
 #include	"hash.h"
@@ -128,6 +128,39 @@ find(pid_t pid)
     return pinfo + i;
 }
 
+char *
+read_command_line(pid_t pid)
+{
+    char cmdline[64];
+    static char cmd[ARG_MAX];
+
+    sprintf(cmdline, "/proc/%d/cmdline", pid);
+
+    int fd = open(cmdline, O_RDONLY);
+
+    if (fd < 0) {
+	error(EXIT_FAILURE, errno, "failed to open file\n");
+    }
+
+    int bytes = read(fd, cmd, ARG_MAX);
+
+    if (bytes < 0) {
+	error(EXIT_FAILURE, errno, "failed to read file");
+    }
+
+    close(fd);
+
+    for (int i = 0; i < bytes; ++i) {
+	if (!cmd[i]) {
+	    cmd[i] = ' ';
+	}
+    }
+
+    cmd[bytes] = 0;
+
+    return strdup(cmd);
+}
+
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
@@ -142,6 +175,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     int dirfd;
     FILE_INFO *finfo;
     FILE_INFO *dir;
+    char *cmd;
 
     switch (entry->entry.nr) {
 	case SYS_open:
@@ -207,6 +241,16 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 		finfo->hash = get_file_hash(finfo->path);
 		record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
 	    }
+	    break;
+	case SYS_execve:
+	    cmd = read_command_line(pid);
+	    record_process_start(pid, cmd);
+	    free(cmd);
+	    break;
+	case SYS_execveat:
+	    cmd = read_command_line(pid);
+	    record_process_start(pid, cmd);
+	    free(cmd);
 	    break;
 	default:
 	    return;

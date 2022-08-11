@@ -52,7 +52,10 @@ AC_CHECK_TYPES(m4_normalize([
 
 AC_CHECK_TYPE([SHA_CTX],,, [#include <openssl/sha.h>])
 
-AC_CHECK_DECL([PATH_MAX],,, [#include <limits.h>])
+AC_CHECK_DECLS(m4_normalize([
+	PATH_MAX,
+	ARG_MAX
+]),,, [#include <linux/limits.h>])
 
 AC_CHECK_DECLS(m4_normalize([
 	PTRACE_GET_SYSCALL_INFO,
