@@ -12,7 +12,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <stdlib.h>
 #include <sysexits.h>
 #include <unistd.h>
-#include "record.h"
 
 void run_and_record_fnames(char **av);
 
@@ -44,7 +43,6 @@ main(int argc, char **argv, char **envp)
     record_env(stdout, envp);
     record_cmdline(stdout, ++argv);
 
-    record_start("output.txt");
     run_and_record_fnames(argv);
 
     exit(EXIT_SUCCESS);
