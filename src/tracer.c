@@ -297,6 +297,7 @@ tracer_main(pid_t pid)
 	} else if (WIFEXITED(status))  // child process exited
 	{
 	    --running;
+	    record_process_end(pid);
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
