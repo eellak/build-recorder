@@ -265,17 +265,6 @@ tracer_main(pid_t pid)
 		    }
 
 		    break;
-		case SIGTRAP:	       // Caused from fork/vfork/clone/.
-		    // Ignored, the child will be handled
-		    // at SYGSTOP instead.
-		    // Reading and ignoring clone/fork/vfork syscall exit
-		    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0
-			|| waitpid(pid, NULL, 0) < 0) {
-			error(EXIT_FAILURE, errno,
-			      "PTRACE_SYSCALL failed on fork/vfork/clone exit");
-		    }
-
-		    break;
 		case SIGSTOP:
 		    ++running;
 
@@ -286,8 +275,6 @@ tracer_main(pid_t pid)
 		    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
 		    pi->numfinfo = -1;
 		    break;
-		default:
-		    error(EXIT_FAILURE, errno, "unexpected signal\n");
 	    }
 
 	    // Restarting process 
