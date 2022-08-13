@@ -42,7 +42,7 @@ main(int argc, char **argv, char **envp)
     if (argc < 2)
 	error(EX_USAGE, 0, "missing command to record");
 
-    record_start("output.txt");
+    record_start("build-recorder.out");
 
     record_env(stdout, envp);
     record_cmdline(stdout, ++argv);
