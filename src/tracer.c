@@ -151,15 +151,40 @@ read_command_line(pid_t pid)
 
     close(fd);
 
+    size_t extra_bytes = 0;	  // extra bytes we will need for the escape
+				  // characters
     for (int i = 0; i < bytes; ++i) {
-	if (!cmd[i]) {
-	    cmd[i] = ' ';
+	extra_bytes += cmd[i] == '"' || cmd[i] == ' ';
+    }
+
+    char *command = (char *) malloc(bytes + extra_bytes);
+
+    int j = 0;
+
+    for (int i = 0; i < bytes; ++i) {
+	switch (cmd[i]) {
+	    case '"':
+		command[j] = '\\';
+		command[j + 1] = '"';
+		j += 2;
+		break;
+	    case ' ':
+		command[j] = '\\';
+		command[j + 1] = ' ';
+		j += 2;
+		break;
+	    case '\0':
+		command[j++] = ' ';
+		break;
+	    default:
+		command[j++] = cmd[i];
+		break;
 	}
     }
 
-    cmd[bytes] = 0;
+    command[j] = '\0';
 
-    return strdup(cmd);
+    return command;
 }
 
 static void
