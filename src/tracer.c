@@ -152,12 +152,13 @@ read_command_line(pid_t pid)
     close(fd);
 
     size_t extra_bytes = 0;	  // extra bytes we will need for the escape
-				  // characters
+
+    // characters
     for (int i = 0; i < bytes; ++i) {
 	extra_bytes += cmd[i] == '"' || cmd[i] == ' ';
     }
 
-    char *command = (char *) malloc(bytes + extra_bytes);
+    char *command = (char *) malloc(bytes + extra_bytes + 1);
 
     int j = 0;
 
