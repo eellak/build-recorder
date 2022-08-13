@@ -13,6 +13,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sysexits.h>
 #include <unistd.h>
 
+#include "record.h"
+
 void run_and_record_fnames(char **av);
 
 void
@@ -39,6 +41,8 @@ main(int argc, char **argv, char **envp)
 {
     if (argc < 2)
 	error(EX_USAGE, 0, "missing command to record");
+
+    record_start("build-recorder.out");
 
     record_env(stdout, envp);
     record_cmdline(stdout, ++argv);
