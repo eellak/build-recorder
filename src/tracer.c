@@ -10,6 +10,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<errno.h>
 #include	<error.h>
 #include	<stdlib.h>
+#include	<stdio.h>
 #include	<string.h>
 #include	<unistd.h>
 
