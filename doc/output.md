@@ -16,6 +16,7 @@ The special types and predicates used are listed below:
 - cmd: the actual command line (concatenation of all arguments separated by white space)
 - start: timestamp
 - end: timestamp
+- env: environment entry, in the form of "VAR=value"
 
 #### File
 - name: the file name
@@ -87,3 +88,8 @@ f3	hash	"2222222222222222222222222222222222222222" .
 pid3	writes	f3 .
 
 ```
+
+The example is simplified on purpose,
+since it does not show, for example,
+the reading of the file of the executable "preprocess".
+
