@@ -16,8 +16,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "record.h"
 
-static char *output_file = "build-recorder.out";
-
 void run_and_record_fnames(char **av);
 
 void
@@ -42,12 +40,6 @@ record_env(FILE *fout, char **ep)
 char **
 handle_options(char **argv)
 {
-    if (!strcmp(*argv, "-o")) {
-	output_file = *(++argv);
-	++argv;
-    }
-
-    return argv;
 }
 
 int
@@ -56,9 +48,16 @@ main(int argc, char **argv, char **envp)
     if (argc < 2)
 	error(EX_USAGE, 0, "missing command to record");
 
-    argv = handle_options(++argv);
+    char *output_fname = "build-recorder.out";
 
-    record_start(output_file);
+    if (!strcmp(argv[1], "-o")) {
+	output_file = argv[2];
+	argv += 3;
+    } else {
+	argv += 1;
+    }
+
+    record_start(output_fname);
 
     record_env(stdout, envp);
     record_cmdline(stdout, argv);
