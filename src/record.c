@@ -26,7 +26,7 @@ record_start(char *fname)
 }
 
 static void
-record_triple(char *s, char *p, char *o)
+record_triple(char *s, const char *p, char *o)
 {
     fprintf(fout, "%s\t%s\t%s .\n", s, p, o);
 }
@@ -64,6 +64,17 @@ record_process_end(pid_t pid)
     timestamp_now(tbuf, 32);
 
     record_triple(pbuf, "b:end", tbuf);
+}
+
+void
+record_process_env(pid_t pid, char **envp)
+{
+    char pbuf[32];
+
+    sprintf(pbuf, "pid%ld", (long) pid);
+
+    for (char **ep = envp; *ep != NULL; ep++)
+	record_triple(pbuf, "b:env", *ep);
 }
 
 void
