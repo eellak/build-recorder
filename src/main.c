@@ -37,11 +37,6 @@ record_env(FILE *fout, char **ep)
 	(void) fprintf(fout, "%s\n", *p);
 }
 
-char **
-handle_options(char **argv)
-{
-}
-
 int
 main(int argc, char **argv, char **envp)
 {
@@ -51,7 +46,7 @@ main(int argc, char **argv, char **envp)
     char *output_fname = "build-recorder.out";
 
     if (!strcmp(argv[1], "-o")) {
-	output_file = argv[2];
+	output_fname = argv[2];
 	argv += 3;
     } else {
 	argv += 1;
