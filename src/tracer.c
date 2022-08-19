@@ -11,6 +11,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<error.h>
 #include	<limits.h>
 #include	<stdlib.h>
+#include	<stdio.h>
 #include	<string.h>
 #include	<unistd.h>
 
@@ -33,6 +34,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 PROCESS_INFO *pinfo;
 int numpinfo;
 int pinfo_size;
+
+int numfinfo = 0;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
@@ -59,7 +62,11 @@ next_pinfo(void)
     pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
     if (pinfo == NULL)
 	error(EXIT_FAILURE, errno, "reallocating process info array");
-    return &(pinfo[++numpinfo]);
+
+    PROCESS_INFO *next = pinfo + (++numpinfo);
+
+    sprintf(next->outname, "p%d", numpinfo);
+    return next;
 }
 
 FILE_INFO *
@@ -73,7 +80,11 @@ next_finfo(PROCESS_INFO *pi)
     if (pi->finfo == NULL)
 	error(EXIT_FAILURE, errno, "reallocating file info array in process %d",
 	      pi->pid);
-    return &(pi->finfo[++(pi->numfinfo)]);
+
+    FILE_INFO *next = pi->finfo + (++(pi->numfinfo));
+
+    sprintf(next->outname, "f%d", numfinfo++);
+    return next;
 }
 
 FILE_INFO *
@@ -315,7 +326,7 @@ run_tracee(char **av)
 }
 
 void
-run_and_record_fnames(char **av)
+run_and_record_fnames(char **av, char **envp)
 {
     pid_t pid;
 
@@ -325,7 +336,7 @@ run_and_record_fnames(char **av)
     else if (pid == 0)
 	run_tracee(av);
 
+    record_process_env(pid, envp);
     init_pinfo();
     trace(pid);
-
 }
