@@ -5,15 +5,18 @@ Copyright (C) 2022 Valasiadis Fotios
 SPDX-License-Identifier: LGPL-2.1-or-later
 */
 
-#include "config.h"
+#ifndef BUILD_RECORDER_TYPES
+#  define BUILD_RECORDER_TYPES
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
+#  include "config.h"
 
-#include <sys/ptrace.h>
-#include        <linux/ptrace.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
+#  include <fcntl.h>
+#  include <unistd.h>
+
+#  include <sys/ptrace.h>
+#  include        <linux/ptrace.h>
 
 /*
  * For each file, we keep its name/path
@@ -45,3 +48,5 @@ typedef struct {
     int finfo_size;
     struct ptrace_syscall_info state;
 } PROCESS_INFO;
+
+#endif
