@@ -44,9 +44,6 @@ main(int argc, char **argv, char **envp)
     }
 
     record_start(output_fname);
-
-    record_cmdline(stdout, argv);
-
     run_and_record_fnames(argv, envp);
 
     exit(EXIT_SUCCESS);
