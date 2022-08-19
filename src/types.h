@@ -39,7 +39,7 @@ typedef struct {
  * stop info struct.
  */
 typedef struct {
-    char outname[32];
+    char outname[33];
     pid_t pid;
     char *cmd_line;
     int numfinfo;
