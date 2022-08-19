@@ -199,7 +199,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    break;
 	case SYS_close:
 	    // int close(int fd);
-	    int fd = (int) entry->entry.args[0];
+	    fd = (int) entry->entry.args[0];
 
 	    finfo = find(pid)->finfo + fd;
 
