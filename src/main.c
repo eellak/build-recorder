@@ -16,7 +16,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "record.h"
 
-void run_and_record_fnames(char **av);
+void run_and_record_fnames(char **av, char **envp);
 
 void
 record_cmdline(FILE *fout, char **ap)
@@ -26,15 +26,6 @@ record_cmdline(FILE *fout, char **ap)
     for (p = ap; *p != NULL; p++)
 	(void) fprintf(fout, "%s ", *p);
     (void) fprintf(fout, "\n");
-}
-
-void
-record_env(FILE *fout, char **ep)
-{
-    char **p;
-
-    for (p = ep; *p != NULL; p++)
-	(void) fprintf(fout, "%s\n", *p);
 }
 
 int
@@ -54,10 +45,9 @@ main(int argc, char **argv, char **envp)
 
     record_start(output_fname);
 
-    record_env(stdout, envp);
     record_cmdline(stdout, argv);
 
-    run_and_record_fnames(argv);
+    run_and_record_fnames(argv, envp);
 
     exit(EXIT_SUCCESS);
 }
