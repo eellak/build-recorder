@@ -24,7 +24,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
  * Not all info is added at the same time.
  */
 typedef struct {
-    char outname[33];		  // Up to 10^32 - 1
+    char outname[17];
     char *path;
     char *hash;
     int purpose;
@@ -39,7 +39,7 @@ typedef struct {
  * stop info struct.
  */
 typedef struct {
-    char outname[33];
+    char outname[17];
     pid_t pid;
     char *cmd_line;
     int numfinfo;
