@@ -315,7 +315,7 @@ run_tracee(char **av)
 }
 
 void
-run_and_record_fnames(char **av)
+run_and_record_fnames(char **av, char **envp)
 {
     pid_t pid;
 
@@ -325,7 +325,7 @@ run_and_record_fnames(char **av)
     else if (pid == 0)
 	run_tracee(av);
 
+    record_process_env(pid, envp);
     init_pinfo();
     trace(pid);
-
 }
