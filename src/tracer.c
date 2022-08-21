@@ -9,7 +9,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	<errno.h>
 #include	<error.h>
-#include	<limits.h>
 #include	<stdlib.h>
 #include	<stdio.h>
 #include	<string.h>
@@ -21,6 +20,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/signal.h>
 #include	<sys/syscall.h>
 #include	<sys/wait.h>
+#include	<linux/limits.h>
 
 #include	"types.h"
 #include	"hash.h"
@@ -218,6 +218,17 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 		finfo->hash = get_file_hash(finfo->path);
 		record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
 	    }
+	    break;
+	case SYS_execve:
+	    // int execve(const char *pathname, char *const argv[],
+	    // char *const envp[]);
+	    record_process_start(pid);
+	    break;
+	case SYS_execveat:
+	    // int execveat(int dirfd, const char *pathname,
+	    // const char *const argv[], const char * const envp[],
+	    // int flags);
+	    record_process_start(pid);
 	    break;
 	default:
 	    return;
