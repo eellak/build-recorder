@@ -27,12 +27,12 @@ AC_CONFIG_SRCDIR([src/main.c])
 
 dnl Checks for programs
 dnl Checks for libraries
-AC_CHECK_LIB(crypto, SHA1_Init)
+AC_CHECK_LIB(crypto, EVP_DigestInit_ex)
 
 dnl Checks for headers
 AC_CHECK_HEADERS([m4_normalize([
 	linux/ptrace.h
-	openssl/sha.h
+	openssl/evp.h
 	sys/mman.h
 	sys/ptrace.h
 	sys/signal.h
@@ -53,7 +53,10 @@ AC_CHECK_TYPES(m4_normalize([
 	pid_t
 ]),,, [#include <sys/types.h>])
 
-AC_CHECK_TYPE([SHA_CTX],,, [#include <openssl/sha.h>])
+AC_CHECK_TYPES(m4_normalize([
+	EVP_MD_CTX *,
+	EVP_MD *
+]),,, [#include <openssl/evp.h>])
 
 AC_CHECK_DECL([PATH_MAX],,, [#include <limits.h>])
 
@@ -89,7 +92,14 @@ AC_CHECK_DECLS(m4_normalize([
 AC_CHECK_DECL([MADV_SEQUENTIAL],,, [#include <sys/mman.h>])
 
 dnl Checks for functions
-AC_CHECK_FUNCS([SHA1_Init SHA1_Update SHA1_Final])
+AC_CHECK_FUNCS(m4_normalize([
+	EVP_get_digestbyname
+	EVP_MD_CTX_new
+	EVP_MD_CTX_free
+	EVP_DigestInit_ex
+	EVP_DigestUpdate
+	EVP_DigestFinal_ex
+]))
 AC_CHECK_FUNCS([fork ptrace waitpid wait])
 AC_CHECK_FUNCS([mmap madvise])
 
