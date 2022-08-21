@@ -139,65 +139,6 @@ find(pid_t pid)
     return pinfo + i;
 }
 
-char *
-read_command_line(pid_t pid)
-{
-    char cmdline[64];
-    static char cmd[ARG_MAX];
-
-    sprintf(cmdline, "/proc/%d/cmdline", pid);
-
-    int fd = open(cmdline, O_RDONLY);
-
-    if (fd < 0) {
-	error(EXIT_FAILURE, errno, "failed to open file\n");
-    }
-
-    int bytes = read(fd, cmd, ARG_MAX);
-
-    if (bytes < 0) {
-	error(EXIT_FAILURE, errno, "failed to read file");
-    }
-
-    close(fd);
-
-    size_t extra_bytes = 0;	  // extra bytes we will need for the escape
-
-    // characters
-    for (int i = 0; i < bytes; ++i) {
-	extra_bytes += cmd[i] == '"' || cmd[i] == ' ';
-    }
-
-    char *command = (char *) malloc(bytes + extra_bytes + 1);
-
-    int j = 0;
-
-    for (int i = 0; i < bytes; ++i) {
-	switch (cmd[i]) {
-	    case '"':
-		command[j] = '\\';
-		command[j + 1] = '"';
-		j += 2;
-		break;
-	    case ' ':
-		command[j] = '\\';
-		command[j + 1] = ' ';
-		j += 2;
-		break;
-	    case '\0':
-		command[j++] = ' ';
-		break;
-	    default:
-		command[j++] = cmd[i];
-		break;
-	}
-    }
-
-    command[j] = '\0';
-
-    return command;
-}
-
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
@@ -212,7 +153,6 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
     int dirfd;
     FILE_INFO *finfo;
     FILE_INFO *dir;
-    char *cmd;
 
     switch (entry->entry.nr) {
 	case SYS_open:
@@ -280,14 +220,15 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    }
 	    break;
 	case SYS_execve:
-	    cmd = read_command_line(pid);
-	    record_process_start(pid, cmd);
-	    free(cmd);
+	    // int execve(const char *pathname, char *const argv[],
+	    // char *const envp[]);
+	    record_process_start(pid);
 	    break;
 	case SYS_execveat:
-	    cmd = read_command_line(pid);
-	    record_process_start(pid, cmd);
-	    free(cmd);
+	    // int execveat(int dirfd, const char *pathname,
+	    // const char *const argv[], const char * const envp[],
+	    // int flags);
+	    record_process_start(pid);
 	    break;
 	default:
 	    return;
