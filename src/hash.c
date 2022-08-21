@@ -1,6 +1,7 @@
 
 /*
 Copyright (C) 2022 Alexios Zavras
+Copyright (C) 2022 Valasiadis Fotios
 SPDX-License-Identifier: LGPL-2.1-or-later
 */
 
