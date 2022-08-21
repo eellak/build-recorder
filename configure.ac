@@ -46,13 +46,19 @@ AC_CHECK_HEADERS([m4_normalize([
 
 dnl Checks for typedefs and structures
 AC_CHECK_TYPES(m4_normalize([
-	pid_t,
 	struct ptrace_syscall_info
 ]),,, [#include <linux/ptrace.h>])
 
+AC_CHECK_TYPES(m4_normalize([
+	pid_t
+]),,, [#include <sys/types.h>])
+
 AC_CHECK_TYPE([SHA_CTX],,, [#include <openssl/sha.h>])
 
-AC_CHECK_DECL([PATH_MAX],,, [#include <limits.h>])
+AC_CHECK_DECLS(m4_normalize([
+	PATH_MAX,
+	ARG_MAX
+]),,, [#include <linux/limits.h>])
 
 AC_CHECK_DECLS(m4_normalize([
 	PTRACE_GET_SYSCALL_INFO,

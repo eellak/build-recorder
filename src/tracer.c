@@ -9,9 +9,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	<errno.h>
 #include	<error.h>
-#include	<limits.h>
-#include	<stdint.h>
 #include	<stdlib.h>
+#include	<stdio.h>
 #include	<string.h>
 #include	<unistd.h>
 
@@ -21,8 +20,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/signal.h>
 #include	<sys/syscall.h>
 #include	<sys/wait.h>
+#include	<linux/limits.h>
 
 #include	"types.h"
+#include	"hash.h"
 #include	"record.h"
 
 /*
@@ -33,6 +34,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 PROCESS_INFO *pinfo;
 int numpinfo;
 int pinfo_size;
+
+int numfinfo = 0;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
@@ -59,7 +62,11 @@ next_pinfo(void)
     pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
     if (pinfo == NULL)
 	error(EXIT_FAILURE, errno, "reallocating process info array");
-    return &(pinfo[++numpinfo]);
+
+    PROCESS_INFO *next = pinfo + (++numpinfo);
+
+    sprintf(next->outname, "p%d", numpinfo);
+    return next;
 }
 
 FILE_INFO *
@@ -124,8 +131,6 @@ find(pid_t pid)
 
     return pinfo + i;
 }
-
-uint8_t *hash_file(char *);
 
 static void
 handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
@@ -198,12 +203,25 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    break;
 	case SYS_close:
 	    // int close(int fd);
-	    int fd = (int) entry->entry.args[0];
+	    fd = (int) entry->entry.args[0];
 
 	    finfo = find(pid)->finfo + fd;
 
-	    finfo->hash = hash_file(finfo->path);
-	    record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
+	    if (finfo->path != (char *) 0) {
+		finfo->hash = get_file_hash(finfo->path);
+		record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
+	    }
+	    break;
+	case SYS_execve:
+	    // int execve(const char *pathname, char *const argv[],
+	    // char *const envp[]);
+	    record_process_start(pid);
+	    break;
+	case SYS_execveat:
+	    // int execveat(int dirfd, const char *pathname,
+	    // const char *const argv[], const char * const envp[],
+	    // int flags);
+	    record_process_start(pid);
 	    break;
 	default:
 	    return;
@@ -262,17 +280,6 @@ tracer_main(pid_t pid)
 		    }
 
 		    break;
-		case SIGTRAP:	       // Caused from fork/vfork/clone/.
-		    // Ignored, the child will be handled
-		    // at SYGSTOP instead.
-		    // Reading and ignoring clone/fork/vfork syscall exit
-		    if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0
-			|| waitpid(pid, NULL, 0) < 0) {
-			error(EXIT_FAILURE, errno,
-			      "PTRACE_SYSCALL failed on fork/vfork/clone exit");
-		    }
-
-		    break;
 		case SIGSTOP:
 		    ++running;
 
@@ -283,8 +290,6 @@ tracer_main(pid_t pid)
 		    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
 		    pi->numfinfo = -1;
 		    break;
-		default:
-		    error(EXIT_FAILURE, errno, "unexpected signal\n");
 	    }
 
 	    // Restarting process 
@@ -294,6 +299,7 @@ tracer_main(pid_t pid)
 	} else if (WIFEXITED(status))  // child process exited
 	{
 	    --running;
+	    record_process_end(pid);
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
@@ -324,7 +330,7 @@ run_tracee(char **av)
 }
 
 void
-run_and_record_fnames(char **av)
+run_and_record_fnames(char **av, char **envp)
 {
     pid_t pid;
 
@@ -334,7 +340,8 @@ run_and_record_fnames(char **av)
     else if (pid == 0)
 	run_tracee(av);
 
+    record_process_start(pid);
+    record_process_env(pid, envp);
     init_pinfo();
     trace(pid);
-
 }
