@@ -90,7 +90,7 @@ next_finfo(PROCESS_INFO *pi)
 FILE_INFO *
 finfo_at(PROCESS_INFO *pi, int index)
 {
-    if (index == pinfo->finfo_size) {
+    if (index > pinfo->numfinfo) {
 	return next_finfo(pinfo);
     } else {
 	return pinfo->finfo + index;
