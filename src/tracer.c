@@ -55,13 +55,12 @@ init_pinfo(void)
 PROCESS_INFO *
 next_pinfo(void)
 {
-    if (numpinfo < pinfo_size)
-	return &(pinfo[++numpinfo]);
-
-    pinfo_size *= 2;
-    pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
-    if (pinfo == NULL)
-	error(EXIT_FAILURE, errno, "reallocating process info array");
+    if (numpinfo >= pinfo_size) {
+	pinfo_size *= 2;
+	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
+	if (pinfo == NULL)
+	    error(EXIT_FAILURE, errno, "reallocating process info array");
+    }
 
     PROCESS_INFO *next = pinfo + (++numpinfo);
 
@@ -72,14 +71,13 @@ next_pinfo(void)
 FILE_INFO *
 next_finfo(PROCESS_INFO *pi)
 {
-    if (pi->numfinfo < pi->finfo_size)
-	return &(pi->finfo[++(pi->numfinfo)]);
-
-    pi->finfo_size *= 2;
-    pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
-    if (pi->finfo == NULL)
-	error(EXIT_FAILURE, errno, "reallocating file info array in process %d",
-	      pi->pid);
+    if (pi->numfinfo >= pi->finfo_size) {
+	pi->finfo_size *= 2;
+	pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
+	if (pi->finfo == NULL)
+	    error(EXIT_FAILURE, errno,
+		  "reallocating file info array in process %d", pi->pid);
+    }
 
     FILE_INFO *next = pi->finfo + (++(pi->numfinfo));
 
