@@ -293,7 +293,6 @@ tracer_main(pid_t pid, char **envp)
 		    pi->pid = pid;
 		    pi->finfo_size = DEFAULT_FINFO_SIZE;
 		    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
-		    pi->numfinfo = -1;
 		    break;
 	    }
 
@@ -322,7 +321,6 @@ trace(pid_t pid, char **envp)
     pi->pid = pid;
     pi->finfo_size = DEFAULT_FINFO_SIZE;
     pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
-    pi->numfinfo = -1;
 
     tracer_main(pid, envp);
 }
