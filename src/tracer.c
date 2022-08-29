@@ -62,37 +62,28 @@ next_pinfo(void)
 	    error(EXIT_FAILURE, errno, "reallocating process info array");
     }
 
-    PROCESS_INFO *next = pinfo + (++numpinfo);
-
-    sprintf(next->outname, "p%d", numpinfo);
-    return next;
-}
-
-FILE_INFO *
-next_finfo(PROCESS_INFO *pi)
-{
-    if (pi->numfinfo >= pi->finfo_size) {
-	pi->finfo_size *= 2;
-	pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
-	if (pi->finfo == NULL)
-	    error(EXIT_FAILURE, errno,
-		  "reallocating file info array in process %d", pi->pid);
-    }
-
-    FILE_INFO *next = pi->finfo + (++(pi->numfinfo));
-
-    sprintf(next->outname, "f%d", numfinfo++);
-    return next;
+    return pinfo + (++numpinfo);
 }
 
 FILE_INFO *
 finfo_at(PROCESS_INFO *pi, int index)
 {
-    if (index > pinfo->numfinfo) {
-	return next_finfo(pinfo);
-    } else {
-	return pinfo->finfo + index;
+    if (index >= pinfo->finfo_size) {
+	int prev_size = pinfo->finfo_size;
+
+	do {
+	    pinfo->finfo_size *= 2;
+	} while (index >= pinfo->finfo_size);
+
+	pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
+	if (pi->finfo == NULL) {
+	    error(EXIT_FAILURE, errno,
+		  "reallocating file info array in process %d", pi->pid);
+	}
+	memset(pi->finfo + prev_size, 0, pinfo->finfo_size - prev_size);
     }
+
+    return pinfo->finfo + index;
 }
 
 char *
@@ -163,6 +154,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo->path = get_str_from_process(pid, path);
 	    finfo->purpose = flags;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
@@ -173,6 +165,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo->path = get_str_from_process(pid, path);
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -185,6 +178,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    char *rpath = get_str_from_process(pid, path);
 
 	    finfo->purpose = flags;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 
 	    if (dirfd == AT_FDCWD || *rpath == '/') {
 		// If it's an absolute path or relative to cwd
@@ -214,7 +208,8 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    if (finfo->path != (char *) 0) {
 		finfo->hash = get_file_hash(finfo->path);
-		record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
+		record_fileuse(find(pid)->outname, finfo->outname, finfo->path,
+			       finfo->purpose, finfo->hash);
 	    }
 	    break;
 	case SYS_execve:
@@ -234,9 +229,13 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 }
 
 static void
-tracer_main(pid_t pid)
+tracer_main(pid_t pid, char **envp)
 {
     waitpid(pid, NULL, 0);
+
+    record_process_start(pid);
+    record_process_env(pid, envp);
+
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
@@ -290,6 +289,7 @@ tracer_main(pid_t pid)
 
 		    PROCESS_INFO *pi = next_pinfo();
 
+		    sprintf(pi->outname, "p%d", numpinfo);
 		    pi->pid = pid;
 		    pi->finfo_size = DEFAULT_FINFO_SIZE;
 		    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
@@ -312,18 +312,19 @@ tracer_main(pid_t pid)
 }
 
 void
-trace(pid_t pid)
+trace(pid_t pid, char **envp)
 {
     PROCESS_INFO *pi;
 
     pi = next_pinfo();
-    pi->pid = pid;
 
+    sprintf(pi->outname, "p%d", numpinfo);
+    pi->pid = pid;
     pi->finfo_size = DEFAULT_FINFO_SIZE;
     pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
     pi->numfinfo = -1;
 
-    tracer_main(pid);
+    tracer_main(pid, envp);
 }
 
 void
@@ -345,8 +346,6 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
-    record_process_start(pid);
-    record_process_env(pid, envp);
     init_pinfo();
-    trace(pid);
+    trace(pid, envp);
 }

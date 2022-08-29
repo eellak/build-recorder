@@ -153,6 +153,19 @@ record_process_env(pid_t pid, char **envp)
 }
 
 void
-record_fileuse(pid_t pid, char *path, int purpose, char *hash)
+record_fileuse(char *poutname, char *foutname, char *path, int purpose,
+	       char *hash)
 {
+    record_triple(foutname, "a", "file", false);
+    record_triple(foutname, "b:name", path, true);
+    record_triple(foutname, "b:hash", hash, true);
+
+    if (purpose & O_RDONLY) {
+	record_triple(poutname, "b:reads", foutname, false);
+    } else if (purpose & O_WRONLY) {
+	record_triple(poutname, "b:writes", foutname, false);
+    } else {			       // O_RDWR
+	record_triple(poutname, "b:reads", foutname, false);
+	record_triple(poutname, "b:writes", foutname, false);
+    }
 }
