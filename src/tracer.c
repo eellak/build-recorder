@@ -230,9 +230,13 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 }
 
 static void
-tracer_main(pid_t pid)
+tracer_main(pid_t pid, char **envp)
 {
     waitpid(pid, NULL, 0);
+
+    record_process_start(pid);
+    record_process_env(pid, envp);
+
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
@@ -308,7 +312,7 @@ tracer_main(pid_t pid)
 }
 
 void
-trace(pid_t pid)
+trace(pid_t pid, char **envp)
 {
     PROCESS_INFO *pi;
 
@@ -319,7 +323,7 @@ trace(pid_t pid)
     pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
     pi->numfinfo = -1;
 
-    tracer_main(pid);
+    tracer_main(pid, envp);
 }
 
 void
@@ -341,8 +345,6 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
-    record_process_start(pid);
-    record_process_env(pid, envp);
     init_pinfo();
-    trace(pid);
+    trace(pid, envp);
 }
