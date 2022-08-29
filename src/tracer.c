@@ -70,31 +70,24 @@ next_pinfo(void)
 }
 
 FILE_INFO *
-next_finfo(PROCESS_INFO *pi)
-{
-    if (pi->numfinfo < pi->finfo_size)
-	return &(pi->finfo[++(pi->numfinfo)]);
-
-    pi->finfo_size *= 2;
-    pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
-    if (pi->finfo == NULL)
-	error(EXIT_FAILURE, errno, "reallocating file info array in process %d",
-	      pi->pid);
-
-    FILE_INFO *next = pi->finfo + (++(pi->numfinfo));
-
-    sprintf(next->outname, "f%d", numfinfo++);
-    return next;
-}
-
-FILE_INFO *
 finfo_at(PROCESS_INFO *pi, int index)
 {
-    if (index == pinfo->finfo_size) {
-	return next_finfo(pinfo);
-    } else {
-	return pinfo->finfo + index;
+    if (index >= pinfo->finfo_size) {
+	int prev_size = pinfo->finfo_size;
+
+	do {
+	    pinfo->finfo_size *= 2;
+	} while (index >= pinfo->finfo_size);
+
+	pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
+	if (pi->finfo == NULL) {
+	    error(EXIT_FAILURE, errno,
+		  "reallocating file info array in process %d", pi->pid);
+	}
+	memset(pi->finfo + prev_size, 0, pinfo->finfo_size - prev_size);
     }
+
+    return pinfo->finfo + index;
 }
 
 char *
