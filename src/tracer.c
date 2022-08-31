@@ -216,13 +216,13 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pid);
+	    record_process_start(pid, find(pid)->outname);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pid);
+	    record_process_start(pid, find(pid)->outname);
 	    break;
 	default:
 	    return;
@@ -234,8 +234,8 @@ tracer_main(pid_t pid, char **envp)
 {
     waitpid(pid, NULL, 0);
 
-    record_process_start(pid);
-    record_process_env(pid, envp);
+    record_process_start(pid, find(pid)->outname);
+    record_process_env(find(pid)->outname, envp);
 
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
@@ -304,7 +304,7 @@ tracer_main(pid_t pid, char **envp)
 	} else if (WIFEXITED(status))  // child process exited
 	{
 	    --running;
-	    record_process_end(pid);
+	    record_process_end(find(pid)->outname);
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
