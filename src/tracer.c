@@ -211,6 +211,10 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 		finfo->hash = get_file_hash(finfo->path);
 		record_fileuse(find(pid)->outname, finfo->outname, finfo->path,
 			       finfo->purpose, finfo->hash);
+
+		free(finfo->path);
+		free(finfo->hash);
+		memset(finfo, 0, sizeof (FILE_INFO));
 	    }
 	    break;
 	case SYS_execve:
