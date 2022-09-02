@@ -24,10 +24,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
  * Not all info is added at the same time.
  */
 typedef struct {
-    char outname[16];
     char *path;
-    char *hash;
+    int fd;
     int purpose;
+    char outname[16];
 } FILE_INFO;
 
 /*

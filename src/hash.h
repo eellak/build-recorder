@@ -1,3 +1,3 @@
 
 /* hash.c */
-char *get_file_hash(char *fname);
+char *get_file_hash(int fd);

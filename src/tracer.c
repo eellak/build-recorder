@@ -84,36 +84,16 @@ finfo_at(PROCESS_INFO *pi, int index)
 	    error(EXIT_FAILURE, errno,
 		  "reallocating file info array in process %d", pi->pid);
 	}
-	memset(pi->finfo + prev_size, 0, pinfo->finfo_size - prev_size);
+
+	FILE_INFO *base = pi->finfo + prev_size;
+	int size = pi->finfo_size - prev_size;
+
+	for (int i = 0; i < size; ++i) {
+	    base[i].purpose = 0;
+	}
     }
 
     return pinfo->finfo + index;
-}
-
-char *
-get_str_from_process(pid_t pid, void *addr)
-{
-    static char buf[PATH_MAX];
-    char *dest = buf;
-    union {
-	long lval;
-	char cval[sizeof (long)];
-    } data;
-
-    size_t i = 0;
-
-    do {
-	data.lval =
-		ptrace(PTRACE_PEEKDATA, pid, addr + i * sizeof (long), NULL);
-	for (int j = 0; j < sizeof (long); j++) {
-	    *dest++ = data.cval[j];
-	    if (data.cval[j] == 0)
-		break;
-	}
-	++i;
-    } while (dest[-1]);
-
-    return strdup(buf);
 }
 
 PROCESS_INFO *
@@ -130,6 +110,32 @@ find(pid_t pid)
     }
 
     return pinfo + i;
+}
+
+static void
+handle_open(int pid, int fd, int flags)
+{
+    FILE_INFO *finfo = finfo_at(find(pid), fd);
+
+    finfo->purpose = flags;
+
+    static char fd_link[32];
+
+    sprintf(fd_link, "/proc/%ld/fd/%d", (long) pid, fd);
+
+    finfo->fd = open(fd_link, O_RDONLY);
+
+    if (finfo->fd < 0) {
+	error(EXIT_FAILURE, errno, "on handle_open open");
+    }
+
+    static char path[PATH_MAX];
+
+    if (readlink(fd_link, path, PATH_MAX) < 0) {
+	error(EXIT_FAILURE, errno, "on handle_open readlink");
+    }
+
+    finfo->path = strdup(path);
 }
 
 static void
@@ -151,55 +157,23 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	case SYS_open:
 	    // int open(const char *pathname, int flags, ...);
 	    fd = (int) exit->exit.rval;
-	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    finfo = finfo_at(find(pid), fd);
-
-	    finfo->path = get_str_from_process(pid, path);
-	    finfo->purpose = flags;
+	    handle_open(pid, fd, flags);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
-	    path = (void *) entry->entry.args[0];
+	    flags = O_CREAT | O_WRONLY | O_TRUNC;
 
-	    finfo = finfo_at(find(pid), fd);
-
-	    finfo->path = get_str_from_process(pid, path);
-	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
+	    handle_open(pid, fd, flags);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
 	    fd = (int) exit->exit.rval;
-	    dirfd = (int) entry->entry.args[0];
-	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    finfo = finfo_at(find(pid), fd);
-	    char *rpath = get_str_from_process(pid, path);
-
-	    finfo->purpose = flags;
-
-	    if (dirfd == AT_FDCWD || *rpath == '/') {
-		// If it's an absolute path or relative to cwd
-		finfo->path = rpath;
-		break;
-	    }
-
-	    dir = pinfo->finfo + dirfd;
-	    long dir_path_length = strlen(dir->path);
-
-	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);
-
-	    // one for '/' and one for null terminator
-
-	    strcpy(buf, dir->path);
-	    buf[dir_path_length] = '/';
-	    strcpy(buf + dir_path_length + 1, rpath);
-	    free(rpath);
-
-	    finfo->path = buf;
+	    handle_open(pid, fd, flags);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
@@ -207,10 +181,15 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo = find(pid)->finfo + fd;
 
-	    if (finfo->path != (char *) 0) {
-		finfo->hash = get_file_hash(finfo->path);
+	    if (finfo->purpose != 0) { // If the file has been opened.
+		char *hash = get_file_hash(finfo->fd);
+
+		close(finfo->fd);
 		record_fileuse(find(pid)->outname, finfo->outname, finfo->path,
-			       finfo->purpose, finfo->hash);
+			       finfo->purpose, hash);
+		finfo->purpose = 0;    // file is closed again.
+		free(finfo->path);
+		free(hash);
 	    }
 	    break;
 	case SYS_execve:

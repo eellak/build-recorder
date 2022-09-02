@@ -52,24 +52,18 @@ hash_to_str(uint8_t *h)
 }
 
 static uint8_t *
-hash_file_contents(char *name, size_t sz)
+hash_file_contents(int fd, size_t sz)
 {
-    int fd = open(name, O_RDONLY);
-
-    if (fd < 0) {
-	error(0, errno, "open `%s'", name);
-	return NULL;
-    }
     char *buf = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
 
     if (buf == MAP_FAILED) {
-	error(0, errno, "mmaping `%s'", name);
+	error(0, errno, "mmaping `%d'", fd);
 	return NULL;
     }
     int ret = madvise(buf, sz, MADV_SEQUENTIAL);
 
     if (ret) {
-	error(0, errno, "madvise `%s'", name);
+	error(0, errno, "madvise `%d'", fd);
     }
 
     char pre[32];
@@ -82,7 +76,7 @@ hash_file_contents(char *name, size_t sz)
 
     hash = malloc(SHA1_OUTPUT_LEN);
     if (hash == NULL) {
-	error(0, errno, "malloc output on `%s'", name);
+	error(0, errno, "malloc output on `%d'", fd);
 	return NULL;
     }
 
@@ -97,19 +91,19 @@ hash_file_contents(char *name, size_t sz)
 }
 
 char *
-get_file_hash(char *fname)
+get_file_hash(int fd)
 {
-    struct stat fstat;
+    struct stat statbuf;
 
-    if (stat(fname, &fstat)) {
-	error(0, errno, "getting info on `%s'", fname);
+    if (fstat(fd, &statbuf)) {
+	error(0, errno, "getting info on `%d'", fd);
 	return NULL;
     }
-    if (S_ISREG(fstat.st_mode) || S_ISLNK(fstat.st_mode)) {
-	size_t sz = fstat.st_size;
+    if (S_ISREG(statbuf.st_mode) || S_ISLNK(statbuf.st_mode)) {
+	size_t sz = statbuf.st_size;
 
 	if (sz > 0) {
-	    uint8_t *h = hash_file_contents(fname, sz);
+	    uint8_t *h = hash_file_contents(fd, sz);
 
 	    return hash_to_str(h);
 	} else {
