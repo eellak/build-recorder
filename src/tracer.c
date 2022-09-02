@@ -131,9 +131,12 @@ handle_open(int pid, int fd, int flags)
 
     static char path[PATH_MAX];
 
-    if (readlink(fd_link, path, PATH_MAX) < 0) {
+    int len = readlink(fd_link, path, PATH_MAX);
+
+    if (len < 0) {
 	error(EXIT_FAILURE, errno, "on handle_open readlink");
     }
+    path[len] = '\0';
 
     finfo->path = strdup(path);
 }
