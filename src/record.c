@@ -93,6 +93,8 @@ get_cmdline(pid_t pid)
 	return NULL;
     }
 
+    *ret = '\0';
+
     for (i = 0, w = c = data; i < n; i++, c++) {
 	if (*c == ' ') {
 	    has_spaces = true;
