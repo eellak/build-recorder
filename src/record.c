@@ -115,41 +115,33 @@ get_cmdline(pid_t pid)
 }
 
 void
-record_process_start(pid_t pid)
+record_process_start(pid_t pid, char *poutname)
 {
-    char pbuf[32];
     char tbuf[32];
     char *cmd_line = get_cmdline(pid);
 
-    sprintf(pbuf, "pid%ld", (long) pid);
     timestamp_now(tbuf, 32);
 
-    record_triple(pbuf, "a", "b:process", false);
-    record_triple(pbuf, "b:cmd", cmd_line, true);
-    record_triple(pbuf, "b:start", tbuf, true);
+    record_triple(poutname, "a", "b:process", false);
+    record_triple(poutname, "b:cmd", cmd_line, true);
+    record_triple(poutname, "b:start", tbuf, true);
 }
 
 void
-record_process_end(pid_t pid)
+record_process_end(char *poutname)
 {
-    char pbuf[32];
     char tbuf[32];
 
-    sprintf(pbuf, "pid%ld", (long) pid);
     timestamp_now(tbuf, 32);
 
-    record_triple(pbuf, "b:end", tbuf, true);
+    record_triple(poutname, "b:end", tbuf, true);
 }
 
 void
-record_process_env(pid_t pid, char **envp)
+record_process_env(char *poutname, char **envp)
 {
-    char pbuf[32];
-
-    sprintf(pbuf, "pid%ld", (long) pid);
-
     for (char **ep = envp; *ep != NULL; ep++)
-	record_triple(pbuf, "b:env", *ep, true);
+	record_triple(poutname, "b:env", *ep, true);
 }
 
 void
