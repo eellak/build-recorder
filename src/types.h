@@ -42,7 +42,6 @@ typedef struct {
     char outname[16];
     pid_t pid;
     char *cmd_line;
-    int numfinfo;
     FILE_INFO *finfo;
     int finfo_size;
     struct ptrace_syscall_info state;
