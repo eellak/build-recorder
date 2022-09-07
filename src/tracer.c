@@ -55,18 +55,14 @@ init_pinfo(void)
 PROCESS_INFO *
 next_pinfo(void)
 {
-    if (numpinfo < pinfo_size)
-	return &(pinfo[++numpinfo]);
+    if (numpinfo >= pinfo_size) {
+	pinfo_size *= 2;
+	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
+	if (pinfo == NULL)
+	    error(EXIT_FAILURE, errno, "reallocating process info array");
+    }
 
-    pinfo_size *= 2;
-    pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
-    if (pinfo == NULL)
-	error(EXIT_FAILURE, errno, "reallocating process info array");
-
-    PROCESS_INFO *next = pinfo + (++numpinfo);
-
-    sprintf(next->outname, "p%d", numpinfo);
-    return next;
+    return pinfo + (++numpinfo);
 }
 
 FILE_INFO *
@@ -158,6 +154,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo->path = get_str_from_process(pid, path);
 	    finfo->purpose = flags;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
@@ -168,6 +165,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 
 	    finfo->path = get_str_from_process(pid, path);
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -180,6 +178,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    char *rpath = get_str_from_process(pid, path);
 
 	    finfo->purpose = flags;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 
 	    if (dirfd == AT_FDCWD || *rpath == '/') {
 		// If it's an absolute path or relative to cwd
@@ -290,10 +289,10 @@ tracer_main(pid_t pid, char **envp)
 
 		    PROCESS_INFO *pi = next_pinfo();
 
+		    sprintf(pi->outname, "p%d", numpinfo);
 		    pi->pid = pid;
 		    pi->finfo_size = DEFAULT_FINFO_SIZE;
 		    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
-		    pi->numfinfo = -1;
 		    break;
 	    }
 
@@ -317,11 +316,11 @@ trace(pid_t pid, char **envp)
     PROCESS_INFO *pi;
 
     pi = next_pinfo();
-    pi->pid = pid;
 
+    sprintf(pi->outname, "p%d", numpinfo);
+    pi->pid = pid;
     pi->finfo_size = DEFAULT_FINFO_SIZE;
     pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
-    pi->numfinfo = -1;
 
     tracer_main(pid, envp);
 }
