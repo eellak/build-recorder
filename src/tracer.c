@@ -129,7 +129,7 @@ find(pid_t pid)
 }
 
 static void
-handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
+handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
@@ -150,9 +150,9 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    finfo = finfo_at(pinfo, fd);
+	    finfo = finfo_at(pi, fd);
 
-	    finfo->path = get_str_from_process(pinfo->pid, path);
+	    finfo->path = get_str_from_process(pi->pid, path);
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
@@ -161,9 +161,9 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    fd = (int) exit->exit.rval;
 	    path = (void *) entry->entry.args[0];
 
-	    finfo = finfo_at(pinfo, fd);
+	    finfo = finfo_at(pi, fd);
 
-	    finfo->path = get_str_from_process(pinfo->pid, path);
+	    finfo->path = get_str_from_process(pi->pid, path);
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
@@ -174,8 +174,8 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    finfo = finfo_at(pinfo, fd);
-	    char *rpath = get_str_from_process(pinfo->pid, path);
+	    finfo = finfo_at(pi, fd);
+	    char *rpath = get_str_from_process(pi->pid, path);
 
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
@@ -186,7 +186,7 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 		break;
 	    }
 
-	    dir = pinfo->finfo + dirfd;
+	    dir = pi->finfo + dirfd;
 	    long dir_path_length = strlen(dir->path);
 
 	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);
@@ -204,24 +204,24 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    finfo = pinfo->finfo + fd;
+	    finfo = pi->finfo + fd;
 
 	    if (finfo->path != (char *) 0) {
 		finfo->hash = get_file_hash(finfo->path);
-		record_fileuse(pinfo->outname, finfo->outname, finfo->path,
+		record_fileuse(pi->outname, finfo->outname, finfo->path,
 			       finfo->purpose, finfo->hash);
 	    }
 	    break;
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pinfo->pid);
+	    record_process_start(pi->pid);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pinfo->pid);
+	    record_process_start(pi->pid);
 	    break;
 	default:
 	    return;
