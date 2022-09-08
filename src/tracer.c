@@ -165,14 +165,14 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    fd = (int) exit->exit.rval;
 	    flags = O_CREAT | O_WRONLY | O_TRUNC;
 
-	    handle_open(pi->pid, fd, flags);
+	    handle_open(pinfo, fd, flags);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
 	    fd = (int) exit->exit.rval;
 	    flags = (int) entry->entry.args[2];
 
-	    handle_open(pi->pid, fd, flags);
+	    handle_open(pinfo, fd, flags);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
