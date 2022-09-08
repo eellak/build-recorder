@@ -129,7 +129,7 @@ find(pid_t pid)
 }
 
 static void
-handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
+handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
@@ -150,9 +150,9 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    finfo = finfo_at(find(pid), fd);
+	    finfo = finfo_at(pinfo, fd);
 
-	    finfo->path = get_str_from_process(pid, path);
+	    finfo->path = get_str_from_process(pinfo->pid, path);
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
@@ -161,9 +161,9 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    fd = (int) exit->exit.rval;
 	    path = (void *) entry->entry.args[0];
 
-	    finfo = finfo_at(find(pid), fd);
+	    finfo = finfo_at(pinfo, fd);
 
-	    finfo->path = get_str_from_process(pid, path);
+	    finfo->path = get_str_from_process(pinfo->pid, path);
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
@@ -174,8 +174,8 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    finfo = finfo_at(find(pid), fd);
-	    char *rpath = get_str_from_process(pid, path);
+	    finfo = finfo_at(pinfo, fd);
+	    char *rpath = get_str_from_process(pinfo->pid, path);
 
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
@@ -204,24 +204,24 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    finfo = find(pid)->finfo + fd;
+	    finfo = pinfo->finfo + fd;
 
 	    if (finfo->path != (char *) 0) {
 		finfo->hash = get_file_hash(finfo->path);
-		record_fileuse(find(pid)->outname, finfo->outname, finfo->path,
+		record_fileuse(pinfo->outname, finfo->outname, finfo->path,
 			       finfo->purpose, finfo->hash);
 	    }
 	    break;
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pid, find(pid)->outname);
+	    record_process_start(pinfo->pid);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pid, find(pid)->outname);
+	    record_process_start(pinfo->pid);
 	    break;
 	default:
 	    return;
@@ -276,7 +276,8 @@ tracer_main(pid_t pid, char **envp)
 			    process_state->state = info;
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall(pid, &process_state->state, &info);
+			    handle_syscall(process_state, &process_state->state,
+					   &info);
 			    break;
 			default:
 			    error(EXIT_FAILURE, errno,
