@@ -109,15 +109,15 @@ find(pid_t pid)
 }
 
 static void
-handle_open(int pid, int fd, int flags)
+handle_open(PROCESS_INFO *pi, int fd, int flags)
 {
-    FILE_INFO *finfo = finfo_at(find(pid), fd);
+    FILE_INFO *finfo = finfo_at(pi, fd);
 
     finfo->purpose = flags;
 
     static char fd_link[32];
 
-    sprintf(fd_link, "/proc/%ld/fd/%d", (long) pid, fd);
+    sprintf(fd_link, "/proc/%ld/fd/%d", (long) pi->pid, fd);
 
     finfo->fd = open(fd_link, O_RDONLY);
 
@@ -138,7 +138,7 @@ handle_open(int pid, int fd, int flags)
 }
 
 static void
-handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
+handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
@@ -158,33 +158,33 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    fd = (int) exit->exit.rval;
 	    flags = (int) entry->entry.args[1];
 
-	    handle_open(pid, fd, flags);
+	    handle_open(pinfo, fd, flags);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
 	    flags = O_CREAT | O_WRONLY | O_TRUNC;
 
-	    handle_open(pid, fd, flags);
+	    handle_open(pi->pid, fd, flags);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
 	    fd = (int) exit->exit.rval;
 	    flags = (int) entry->entry.args[2];
 
-	    handle_open(pid, fd, flags);
+	    handle_open(pi->pid, fd, flags);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    finfo = find(pid)->finfo + fd;
+	    finfo = pinfo->finfo + fd;
 
 	    if (finfo->purpose != 0) { // If the file has been opened.
 		char *hash = get_file_hash(finfo->fd);
 
 		close(finfo->fd);
-		record_fileuse(find(pid)->outname, finfo->outname, finfo->path,
+		record_fileuse(pinfo->outname, finfo->outname, finfo->path,
 			       finfo->purpose, hash);
 		finfo->purpose = 0;    // file is closed again.
 		free(finfo->path);
@@ -194,13 +194,13 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pid, find(pid)->outname);
+	    record_process_start(pinfo->pid);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pid, find(pid)->outname);
+	    record_process_start(pinfo->pid);
 	    break;
 	default:
 	    return;
@@ -255,7 +255,8 @@ tracer_main(pid_t pid, char **envp)
 			    process_state->state = info;
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall(pid, &process_state->state, &info);
+			    handle_syscall(process_state, &process_state->state,
+					   &info);
 			    break;
 			default:
 			    error(EXIT_FAILURE, errno,
