@@ -215,13 +215,13 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pi->pid);
+	    record_process_start(pi->pid, pi->outname);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pi->pid);
+	    record_process_start(pi->pid, pi->outname);
 	    break;
 	default:
 	    return;
