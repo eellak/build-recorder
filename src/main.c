@@ -18,16 +18,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 void run_and_record_fnames(char **av, char **envp);
 
-void
-record_cmdline(FILE *fout, char **ap)
-{
-    char **p;
-
-    for (p = ap; *p != NULL; p++)
-	(void) fprintf(fout, "%s ", *p);
-    (void) fprintf(fout, "\n");
-}
-
 int
 main(int argc, char **argv, char **envp)
 {
@@ -44,9 +34,6 @@ main(int argc, char **argv, char **envp)
     }
 
     record_start(output_fname);
-
-    record_cmdline(stdout, argv);
-
     run_and_record_fnames(argv, envp);
 
     exit(EXIT_SUCCESS);
