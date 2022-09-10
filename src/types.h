@@ -45,4 +45,5 @@ typedef struct {
     FILE_INFO *finfo;
     int finfo_size;
     struct ptrace_syscall_info state;
+    void *entry_info;
 } PROCESS_INFO;

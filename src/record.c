@@ -163,3 +163,11 @@ record_fileuse(char *poutname, char *foutname, char *path, int purpose,
 	record_triple(poutname, "b:writes", foutname, false);
     }
 }
+
+void
+record_rename(char *poutname, char *from, char *to)
+{
+    // TODO define format
+    // This is just a demo for testing 
+    record_triple(from, "rename", to, true);
+}
