@@ -113,6 +113,8 @@ handle_open(PROCESS_INFO *pi, int fd, int flags)
 {
     FILE_INFO *finfo = finfo_at(pi, fd);
 
+    sprintf(finfo->outname, "f%d", numfinfo++);
+
     finfo->purpose = flags;
 
     static char fd_link[32];
