@@ -229,14 +229,14 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 }
 
 static void
-tracer_main(pid_t pid, char **envp)
+tracer_main(PROCESS_INFO *pi, char **envp)
 {
-    waitpid(pid, NULL, 0);
+    waitpid(pi->pid, NULL, 0);
 
-    record_process_start(pid, find(pid)->outname);
-    record_process_env(find(pid)->outname, envp);
+    record_process_start(pi->pid, pi->outname);
+    record_process_env(pi->outname, envp);
 
-    ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
+    ptrace(PTRACE_SETOPTIONS, pi->pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
@@ -244,11 +244,11 @@ tracer_main(pid_t pid, char **envp)
     static size_t running = 1;
 
     int status;
-    pid_t tracee_pid = pid;
+    int pid;
     PROCESS_INFO *process_state;
 
     // Starting tracee
-    if (ptrace(PTRACE_SYSCALL, tracee_pid, NULL, NULL) < 0) {
+    if (ptrace(PTRACE_SYSCALL, pi->pid, NULL, NULL) < 0) {
 	error(EXIT_FAILURE, errno, "tracee PTRACE_SYSCALL failed");
     }
 
@@ -323,7 +323,7 @@ trace(pid_t pid, char **envp)
     pi->finfo_size = DEFAULT_FINFO_SIZE;
     pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
 
-    tracer_main(pid, envp);
+    tracer_main(pi, envp);
 }
 
 void
