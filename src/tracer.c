@@ -89,7 +89,7 @@ finfo_at(PROCESS_INFO *pi, int index)
 	}
     }
 
-    return pinfo->finfo + index;
+    return pi->finfo + index;
 }
 
 PROCESS_INFO *
