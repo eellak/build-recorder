@@ -9,7 +9,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	<errno.h>
 #include	<error.h>
-#include	<limits.h>
 #include	<stdlib.h>
 #include	<stdio.h>
 #include	<string.h>
@@ -21,6 +20,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/signal.h>
 #include	<sys/syscall.h>
 #include	<sys/wait.h>
+#include	<linux/limits.h>
 
 #include	"types.h"
 #include	"hash.h"
@@ -55,46 +55,35 @@ init_pinfo(void)
 PROCESS_INFO *
 next_pinfo(void)
 {
-    if (numpinfo < pinfo_size)
-	return &(pinfo[++numpinfo]);
+    if (numpinfo == pinfo_size - 1) {
+	pinfo_size *= 2;
+	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
+	if (pinfo == NULL)
+	    error(EXIT_FAILURE, errno, "reallocating process info array");
+    }
 
-    pinfo_size *= 2;
-    pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
-    if (pinfo == NULL)
-	error(EXIT_FAILURE, errno, "reallocating process info array");
-
-    PROCESS_INFO *next = pinfo + (++numpinfo);
-
-    sprintf(next->outname, "p%d", numpinfo);
-    return next;
-}
-
-FILE_INFO *
-next_finfo(PROCESS_INFO *pi)
-{
-    if (pi->numfinfo < pi->finfo_size)
-	return &(pi->finfo[++(pi->numfinfo)]);
-
-    pi->finfo_size *= 2;
-    pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
-    if (pi->finfo == NULL)
-	error(EXIT_FAILURE, errno, "reallocating file info array in process %d",
-	      pi->pid);
-
-    FILE_INFO *next = pi->finfo + (++(pi->numfinfo));
-
-    sprintf(next->outname, "f%d", numfinfo++);
-    return next;
+    return pinfo + (++numpinfo);
 }
 
 FILE_INFO *
 finfo_at(PROCESS_INFO *pi, int index)
 {
-    if (index == pinfo->finfo_size) {
-	return next_finfo(pinfo);
-    } else {
-	return pinfo->finfo + index;
+    if (index >= pi->finfo_size) {
+	int prev_size = pi->finfo_size;
+
+	do {
+	    pi->finfo_size *= 2;
+	} while (index >= pi->finfo_size);
+
+	pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
+	if (pi->finfo == NULL) {
+	    error(EXIT_FAILURE, errno,
+		  "reallocating file info array in process %d", pi->pid);
+	}
+	memset(pi->finfo + prev_size, 0, pi->finfo_size - prev_size);
     }
+
+    return pi->finfo + index;
 }
 
 char *
@@ -140,7 +129,7 @@ find(pid_t pid)
 }
 
 static void
-handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
+handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
@@ -161,20 +150,22 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    finfo = finfo_at(find(pid), fd);
+	    finfo = finfo_at(pi, fd);
 
-	    finfo->path = get_str_from_process(pid, path);
+	    finfo->path = get_str_from_process(pi->pid, path);
 	    finfo->purpose = flags;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
 	    path = (void *) entry->entry.args[0];
 
-	    finfo = finfo_at(find(pid), fd);
+	    finfo = finfo_at(pi, fd);
 
-	    finfo->path = get_str_from_process(pid, path);
+	    finfo->path = get_str_from_process(pi->pid, path);
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -183,10 +174,11 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    finfo = finfo_at(find(pid), fd);
-	    char *rpath = get_str_from_process(pid, path);
+	    finfo = finfo_at(pi, fd);
+	    char *rpath = get_str_from_process(pi->pid, path);
 
 	    finfo->purpose = flags;
+	    sprintf(finfo->outname, "f%d", numfinfo++);
 
 	    if (dirfd == AT_FDCWD || *rpath == '/') {
 		// If it's an absolute path or relative to cwd
@@ -194,7 +186,7 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 		break;
 	    }
 
-	    dir = pinfo->finfo + dirfd;
+	    dir = pi->finfo + dirfd;
 	    long dir_path_length = strlen(dir->path);
 
 	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);
@@ -212,12 +204,28 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    finfo = find(pid)->finfo + fd;
+	    finfo = pi->finfo + fd;
 
 	    if (finfo->path != (char *) 0) {
 		finfo->hash = get_file_hash(finfo->path);
-		record_fileuse(pid, finfo->path, finfo->purpose, finfo->hash);
+		record_fileuse(pi->outname, finfo->outname, finfo->path,
+			       finfo->purpose, finfo->hash);
+
+		free(finfo->path);
+		free(finfo->hash);
+		memset(finfo, 0, sizeof (FILE_INFO));
 	    }
+	    break;
+	case SYS_execve:
+	    // int execve(const char *pathname, char *const argv[],
+	    // char *const envp[]);
+	    record_process_start(pi->pid, pi->outname);
+	    break;
+	case SYS_execveat:
+	    // int execveat(int dirfd, const char *pathname,
+	    // const char *const argv[], const char * const envp[],
+	    // int flags);
+	    record_process_start(pi->pid, pi->outname);
 	    break;
 	default:
 	    return;
@@ -225,9 +233,13 @@ handle_syscall(pid_t pid, const struct ptrace_syscall_info *entry,
 }
 
 static void
-tracer_main(pid_t pid)
+tracer_main(pid_t pid, char **envp)
 {
     waitpid(pid, NULL, 0);
+
+    record_process_start(pid, find(pid)->outname);
+    record_process_env(find(pid)->outname, envp);
+
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
@@ -268,7 +280,8 @@ tracer_main(pid_t pid)
 			    process_state->state = info;
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall(pid, &process_state->state, &info);
+			    handle_syscall(process_state, &process_state->state,
+					   &info);
 			    break;
 			default:
 			    error(EXIT_FAILURE, errno,
@@ -281,10 +294,10 @@ tracer_main(pid_t pid)
 
 		    PROCESS_INFO *pi = next_pinfo();
 
+		    sprintf(pi->outname, "p%d", numpinfo);
 		    pi->pid = pid;
 		    pi->finfo_size = DEFAULT_FINFO_SIZE;
 		    pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
-		    pi->numfinfo = -1;
 		    break;
 	    }
 
@@ -295,7 +308,7 @@ tracer_main(pid_t pid)
 	} else if (WIFEXITED(status))  // child process exited
 	{
 	    --running;
-	    record_process_end(pid);
+	    record_process_end(find(pid)->outname);
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
@@ -303,18 +316,18 @@ tracer_main(pid_t pid)
 }
 
 void
-trace(pid_t pid)
+trace(pid_t pid, char **envp)
 {
     PROCESS_INFO *pi;
 
     pi = next_pinfo();
-    pi->pid = pid;
 
+    sprintf(pi->outname, "p%d", numpinfo);
+    pi->pid = pid;
     pi->finfo_size = DEFAULT_FINFO_SIZE;
     pi->finfo = calloc(pi->finfo_size, sizeof (FILE_INFO));
-    pi->numfinfo = -1;
 
-    tracer_main(pid);
+    tracer_main(pid, envp);
 }
 
 void
@@ -336,7 +349,6 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
-    record_process_env(pid, envp);
     init_pinfo();
-    trace(pid);
+    trace(pid, envp);
 }

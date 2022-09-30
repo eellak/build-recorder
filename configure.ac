@@ -27,81 +27,69 @@ AC_CONFIG_SRCDIR([src/main.c])
 
 dnl Checks for programs
 dnl Checks for libraries
-AC_CHECK_LIB(crypto, EVP_DigestInit_ex)
+AC_CHECK_LIB(crypto, EVP_DigestInit_ex,, AC_MSG_ERROR([cannot find libcrypto]))
 
 dnl Checks for headers
-AC_CHECK_HEADERS([m4_normalize([
-	linux/ptrace.h
-	openssl/evp.h
-	sys/mman.h
-	sys/ptrace.h
-	sys/signal.h
-	sys/stat.h
-	sys/syscall.h
-	sys/sysinfo.h
-	sys/types.h
-	sys/wait.h
-	sysexits.h
-])])
+AC_CHECK_HEADER([linux/ptrace.h],, AC_MSG_ERROR([cannot find linux/ptrace.h]))
+AC_CHECK_HEADER([openssl/evp.h],, AC_MSG_ERROR([cannot find openssl/evp.h]))
+AC_CHECK_HEADER([sys/mman.h],, AC_MSG_ERROR([cannot find sys/mman.h]))
+AC_CHECK_HEADER([sys/ptrace.h],, AC_MSG_ERROR([cannot find sys/ptrace.h]))
+AC_CHECK_HEADER([sys/signal.h],, AC_MSG_ERROR([cannot find sys/signal.h]))
+AC_CHECK_HEADER([sys/stat.h],, AC_MSG_ERROR([cannot find sys/stat.h]))
+AC_CHECK_HEADER([sys/syscall.h],, AC_MSG_ERROR([cannot find sys/syscall.h]))
+AC_CHECK_HEADER([sys/sysinfo.h],, AC_MSG_ERROR([cannot find sys/sysinfo.h]))
+AC_CHECK_HEADER([sys/types.h],, AC_MSG_ERROR([cannot find sys/types.h]))
+AC_CHECK_HEADER([sys/wait.h],, AC_MSG_ERROR([cannot find sys/wait.h]))
+AC_CHECK_HEADER([sysexits.h],, AC_MSG_ERROR([cannot find sysexits.h]))
 
 dnl Checks for typedefs and structures
-AC_CHECK_TYPES(m4_normalize([
-	struct ptrace_syscall_info
-]),,, [#include <linux/ptrace.h>])
+AC_CHECK_TYPE([struct ptrace_syscall_info],, AC_MSG_ERROR([cannot find struct ptrace_syscall_info]), [#include <linux/ptrace.h>])
 
-AC_CHECK_TYPES(m4_normalize([
-	pid_t
-]),,, [#include <sys/types.h>])
+AC_CHECK_TYPE([pid_t],, AC_MSG_ERROR([cannot find pid_t]), [#include <sys/types.h>])
 
-AC_CHECK_TYPES(m4_normalize([
-	EVP_MD_CTX *,
-	EVP_MD *
-]),,, [#include <openssl/evp.h>])
+AC_CHECK_TYPE([EVP_MD *],, AC_MSG_ERROR([cannot find EVP_MD]), [#include <openssl/evp.h>])
+AC_CHECK_TYPE([EVP_MD_CTX *],, AC_MSG_ERROR([cannot find EVP_MD_CTX]), [#include <openssl/evp.h>])
 
-AC_CHECK_DECL([PATH_MAX],,, [#include <limits.h>])
+AC_CHECK_DECL([PATH_MAX],, AC_MSG_ERROR([cannot find PATH_MAX]), [#include <linux/limits.h>])
+AC_CHECK_DECL([ARG_MAX],, AC_MSG_ERROR([cannot find ARG_MAX]), [#include <linux/limits.h>])
 
-AC_CHECK_DECLS(m4_normalize([
-	PTRACE_GET_SYSCALL_INFO,
-	PTRACE_SYSCALL,
-	PTRACE_PEEKDATA,
-	PTRACE_SETOPTIONS,
-	PTRACE_O_EXITKILL,
-	PTRACE_O_TRACESYSGOOD,
-	PTRACE_O_TRACECLONE,
-	PTRACE_O_TRACEFORK,
-	PTRACE_O_TRACEVFORK
-]),,, [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_GET_SYSCALL_INFO],, AC_MSG_ERROR([cannot find PTRACE_GET_SYSCALL_INFO]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_SYSCALL],, AC_MSG_ERROR([cannot find PTRACE_SYSCALL]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_PEEKDATA],, AC_MSG_ERROR([cannot find PTRACE_PEEKDATA]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_SETOPTIONS],, AC_MSG_ERROR([cannot find PTRACE_SETOPTIONS]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_O_EXITKILL],, AC_MSG_ERROR([cannot find PTRACE_O_EXITKILL]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_O_TRACESYSGOOD],, AC_MSG_ERROR([cannot find PTRACE_O_TRACESYSGOOD]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_O_TRACECLONE],, AC_MSG_ERROR([cannot find PTRACE_O_TRACECLONE]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_O_TRACEFORK],, AC_MSG_ERROR([cannot find PTRACE_O_TRACEFORK]), [#include <sys/ptrace.h>])
+AC_CHECK_DECL([PTRACE_O_TRACEVFORK],, AC_MSG_ERROR([cannot find PTRACE_O_TRACEVFORK]), [#include <sys/ptrace.h>])
 
-AC_CHECK_DECLS(m4_normalize([
-	PTRACE_SYSCALL_INFO_ENTRY,
-	PTRACE_SYSCALL_INFO_EXIT
-]),,, [#include <linux/ptrace.h>])
+AC_CHECK_DECL([PTRACE_SYSCALL_INFO_ENTRY],, AC_MSG_ERROR([cannot find PTRACE_SYSCALL_INFO_ENTRY]), [#include <linux/ptrace.h>])
+AC_CHECK_DECL([PTRACE_SYSCALL_INFO_EXIT],, AC_MSG_ERROR([cannot find PTRACE_SYSCALL_INFO_EXIT]), [#include <linux/ptrace.h>])
 
-AC_CHECK_DECLS(m4_normalize([
-	SIGTRAP,
-	SIGSTOP
-]),,, [#include <sys/signal.h>])
+AC_CHECK_DECL([SIGTRAP],, AC_MSG_ERROR([cannot find SIGTRAP]), [#include <sys/signal.h>])
+AC_CHECK_DECL([SIGSTOP],, AC_MSG_ERROR([cannot find SIGSTOP]), [#include <sys/signal.h>])
 
-AC_CHECK_DECLS(m4_normalize([
-	SYS_open,
-	SYS_creat,
-	SYS_openat,
-	SYS_close
-]),,, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_open],, AC_MSG_ERROR([cannot find SYS_open]), [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_creat],, AC_MSG_ERROR([cannot find SYS_creat]), [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_openat],, AC_MSG_ERROR([cannot find SYS_openat]), [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_close],, AC_MSG_ERROR([cannot find SYS_close]), [#include <sys/syscall.h>])
 
-AC_CHECK_DECL([MADV_SEQUENTIAL],,, [#include <sys/mman.h>])
+AC_CHECK_DECL([MADV_SEQUENTIAL],, AC_MSG_ERROR([cannot find MADV_SEQUENTIAL]), [#include <sys/mman.h>])
 
 dnl Checks for functions
-AC_CHECK_FUNCS(m4_normalize([
-	EVP_get_digestbyname
-	EVP_MD_CTX_new
-	EVP_MD_CTX_free
-	EVP_DigestInit_ex
-	EVP_DigestUpdate
-	EVP_DigestFinal_ex
-]))
-AC_CHECK_FUNCS([fork ptrace waitpid wait])
-AC_CHECK_FUNCS([mmap madvise])
+AC_CHECK_FUNC([EVP_get_digestbyname],, AC_MSG_ERROR([cannot find EVP_get_digestbyname(3)]))
+AC_CHECK_FUNC([EVP_MD_CTX_new],, AC_MSG_ERROR([cannot find EVP_MD_CTX_new(3)]))
+AC_CHECK_FUNC([EVP_MD_CTX_free],, AC_MSG_ERROR([cannot find EVP_MD_CTX_free(3)]))
+AC_CHECK_FUNC([EVP_DigestInit_ex],, AC_MSG_ERROR([cannot find EVP_DigestInit_ex(3)]))
+AC_CHECK_FUNC([EVP_DigestUpdate],, AC_MSG_ERROR([cannot find EVP_DigestUpdate(3)]))
+AC_CHECK_FUNC([EVP_DigestFinal_ex],, AC_MSG_ERROR([cannot find EVP_DigestFinal_ex(3)]))
+
+AC_CHECK_FUNC([fork],, AC_MSG_ERROR([cannot find fork(2)]))
+AC_CHECK_FUNC([ptrace],, AC_MSG_ERROR([cannot find ptrace(2)]))
+AC_CHECK_FUNC([waitpid],, AC_MSG_ERROR([cannot find waitpid(2)]))
+
+AC_CHECK_FUNC([mmap],, AC_MSG_ERROR([cannot find mmap(2)]))
+AC_CHECK_FUNC([madvise],, AC_MSG_ERROR([cannot find madvise(2)]))
 
 dnl We need a C compiler
 AC_PROG_CC
