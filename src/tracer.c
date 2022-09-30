@@ -139,8 +139,8 @@ handle_open(PROCESS_INFO *pi, int fd, int flags)
     finfo->path = strdup(path);
 }
 
-static void
-handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
+void
+handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	       const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
@@ -160,33 +160,33 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    fd = (int) exit->exit.rval;
 	    flags = (int) entry->entry.args[1];
 
-	    handle_open(pinfo, fd, flags);
+	    handle_open(pi, fd, flags);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
 	    flags = O_CREAT | O_WRONLY | O_TRUNC;
 
-	    handle_open(pinfo, fd, flags);
+	    handle_open(pi, fd, flags);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
 	    fd = (int) exit->exit.rval;
 	    flags = (int) entry->entry.args[2];
 
-	    handle_open(pinfo, fd, flags);
+	    handle_open(pi, fd, flags);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    finfo = pinfo->finfo + fd;
+	    finfo = pi->finfo + fd;
 
 	    if (finfo->purpose != 0) { // If the file has been opened.
 		char *hash = get_file_hash(finfo->fd);
 
 		close(finfo->fd);
-		record_fileuse(pinfo->outname, finfo->outname, finfo->path,
+		record_fileuse(pi->outname, finfo->outname, finfo->path,
 			       finfo->purpose, hash);
 		finfo->purpose = 0;    // file is closed again.
 		free(finfo->path);
@@ -196,13 +196,13 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pinfo->pid, pinfo->outname);
+	    record_process_start(pi->pid, pi->outname);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pinfo->pid, pinfo->outname);
+	    record_process_start(pi->pid, pi->outname);
 	    break;
 	default:
 	    return;
