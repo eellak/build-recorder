@@ -55,7 +55,7 @@ init_pinfo(void)
 PROCESS_INFO *
 next_pinfo(void)
 {
-    if (numpinfo >= pinfo_size) {
+    if (numpinfo == pinfo_size - 1) {
 	pinfo_size *= 2;
 	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
 	if (pinfo == NULL)
