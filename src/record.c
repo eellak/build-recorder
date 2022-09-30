@@ -167,7 +167,12 @@ record_fileuse(char *poutname, char *foutname, char *path, int purpose,
 void
 record_rename(char *poutname, char *from, char *to)
 {
-    // TODO define format
-    // This is just a demo for testing 
-    record_triple(from, "rename", to, true);
+    static int rename = 0;
+    char unnamed_mod[16];
+
+    sprintf(unnamed_mod, "_:rename%d", rename++);
+
+    record_triple(poutname, "b:rename", unnamed_mod, false);
+    record_triple(unnamed_mod, "b:rename-from", from, true);
+    record_triple(unnamed_mod, "b:rename-to", to, true);
 }
