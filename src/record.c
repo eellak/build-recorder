@@ -166,3 +166,9 @@ record_fileuse(char *poutname, char *foutname, char *path, int purpose,
 	    record_triple(poutname, "b:writes", foutname, false);
     }
 }
+
+void
+record_process_create(char *p1outname, char *p2outname)
+{
+    record_triple(p1outname, "b:creates", p2outname, false);
+}
