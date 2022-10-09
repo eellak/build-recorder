@@ -204,8 +204,18 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    // int flags);
 	    record_process_start(pi->pid, pi->outname);
 	    break;
-	default:
-	    return;
+	case SYS_fork:
+	    // pid_t fork(void);
+	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    break;
+	case SYS_vfork:
+	    // pid_t vfork(void);
+	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    break;
+	case SYS_clone:
+	    // int clone(...);
+	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    break;
     }
 }
 

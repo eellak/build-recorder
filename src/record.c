@@ -154,12 +154,21 @@ record_fileuse(char *poutname, char *foutname, char *path, int purpose,
     record_triple(foutname, "b:name", path, true);
     record_triple(foutname, "b:hash", hash, true);
 
-    if (purpose & O_RDONLY) {
-	record_triple(poutname, "b:reads", foutname, false);
-    } else if (purpose & O_WRONLY) {
-	record_triple(poutname, "b:writes", foutname, false);
-    } else {			       // O_RDWR
-	record_triple(poutname, "b:reads", foutname, false);
-	record_triple(poutname, "b:writes", foutname, false);
+    switch (purpose & O_ACCMODE) {
+	case O_RDONLY:
+	    record_triple(poutname, "b:reads", foutname, false);
+	    break;
+	case O_WRONLY:
+	    record_triple(poutname, "b:writes", foutname, false);
+	    break;
+	case O_RDWR:
+	    record_triple(poutname, "b:reads", foutname, false);
+	    record_triple(poutname, "b:writes", foutname, false);
     }
+}
+
+void
+record_process_create(char *p1outname, char *p2outname)
+{
+    record_triple(p1outname, "b:creates", p2outname, false);
 }
