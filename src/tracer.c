@@ -85,7 +85,7 @@ finfo_at(PROCESS_INFO *pi, int index)
 	int size = pi->finfo_size - prev_size;
 
 	for (int i = 0; i < size; ++i) {
-	    base[i].purpose = 0;
+	    base[i].outname[0] = '\0';
 	}
     }
 
@@ -182,13 +182,14 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 
 	    finfo = pi->finfo + fd;
 
-	    if (finfo->purpose != 0) { // If the file has been opened.
+	    if (finfo->outname[0] != '\0') {	// If the file has been
+						// opened.
 		char *hash = get_file_hash(finfo->fd);
 
 		close(finfo->fd);
 		record_fileuse(pi->outname, finfo->outname, finfo->path,
 			       finfo->purpose, hash);
-		finfo->purpose = 0;    // file is closed again.
+		finfo->outname[0] = '\0';	// file is closed again.
 		free(finfo->path);
 		free(hash);
 	    }
