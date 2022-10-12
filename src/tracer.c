@@ -56,7 +56,7 @@ init_pinfo(void)
 PROCESS_INFO *
 next_pinfo(void)
 {
-    if (numpinfo >= pinfo_size) {
+    if (numpinfo == pinfo_size - 1) {
 	pinfo_size *= 2;
 	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
 	if (pinfo == NULL)
@@ -201,6 +201,7 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
 	    // 
+	    // 
 	    // const char *newpath, unsigned int flags);
 	    olddirfd = entry->entry.args[0];
 	    oldpath =
@@ -296,6 +297,10 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 		finfo->hash = get_file_hash(finfo->path);
 		record_fileuse(pi->outname, finfo->outname, finfo->path,
 			       finfo->purpose, finfo->hash);
+
+		free(finfo->path);
+		free(finfo->hash);
+		memset(finfo, 0, sizeof (FILE_INFO));
 	    }
 	    break;
 	case SYS_execve:
@@ -334,6 +339,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
 	    // 
+	    // 
 	    // const char *newpath, unsigned int flags);
 	    newdirfd = entry->entry.args[2];
 	    newpath =
@@ -344,8 +350,18 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 
 	    free(newpath);
 	    break;
-	default:
-	    return;
+	case SYS_fork:
+	    // pid_t fork(void);
+	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    break;
+	case SYS_vfork:
+	    // pid_t vfork(void);
+	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    break;
+	case SYS_clone:
+	    // int clone(...);
+	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    break;
     }
 }
 
