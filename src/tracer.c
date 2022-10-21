@@ -171,11 +171,14 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    finfo = finfo_at(pi, fd);
 	    path = get_str_from_process(pi->pid, path);
 
-	    finfo->path = absolutepath(pi->pid, AT_FDCWD, path);
+	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
+	    if(finfo->abspath == NULL) {
+		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
+	    }
+	    finfo->path = path;
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
 
-	    free(path);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
@@ -186,11 +189,14 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 
 	    path = get_str_from_process(pi->pid, path);
 
-	    finfo->path = absolutepath(pi->pid, AT_FDCWD, path);
+	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
+	    if(finfo->abspath == NULL) {
+		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
+	    }
+	    finfo->path = path;
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
 
-	    free(path);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -204,9 +210,12 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
-	    finfo->path = absolutepath(pi->pid, dirfd, path);
+	    finfo->abspath = absolutepath(pi->pid, dirfd, path);
+	    if(finfo->abspath == NULL) {
+		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
+	    }
+	    finfo->path = path;
 
-	    free(path);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
@@ -215,11 +224,12 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    finfo = pi->finfo + fd;
 
 	    if (finfo->path != (char *) 0) {
-		finfo->hash = get_file_hash(finfo->path);
+		finfo->hash = get_file_hash(finfo->abspath);
 		record_fileuse(pi->outname, finfo->outname, finfo->path,
-			       finfo->purpose, finfo->hash);
+			       finfo->abspath, finfo->purpose, finfo->hash);
 
 		free(finfo->path);
+		free(finfo->abspath);
 		free(finfo->hash);
 		memset(finfo, 0, sizeof (FILE_INFO));
 	    }

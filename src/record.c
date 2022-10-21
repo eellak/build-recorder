@@ -147,11 +147,12 @@ record_process_env(char *poutname, char **envp)
 }
 
 void
-record_fileuse(char *poutname, char *foutname, char *path, int purpose,
+record_fileuse(char *poutname, char *foutname, char *path, char *abspath, int purpose,
 	       char *hash)
 {
     record_triple(foutname, "a", "file", false);
     record_triple(foutname, "b:name", path, true);
+    record_triple(foutname, "b:abspath", abspath, true);
     record_triple(foutname, "b:hash", hash, true);
 
     switch (purpose & O_ACCMODE) {
