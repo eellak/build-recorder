@@ -147,8 +147,8 @@ record_process_env(char *poutname, char **envp)
 }
 
 void
-record_fileuse(char *poutname, char *foutname, char *path, char *abspath, int purpose,
-	       char *hash)
+record_fileuse(char *poutname, char *foutname, char *path, char *abspath,
+	       int purpose, char *hash)
 {
     record_triple(foutname, "a", "file", false);
     record_triple(foutname, "b:name", path, true);

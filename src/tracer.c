@@ -172,7 +172,7 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    path = get_str_from_process(pi->pid, path);
 
 	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
-	    if(finfo->abspath == NULL) {
+	    if (finfo->abspath == NULL) {
 		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
 	    }
 	    finfo->path = path;
@@ -190,7 +190,7 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    path = get_str_from_process(pi->pid, path);
 
 	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
-	    if(finfo->abspath == NULL) {
+	    if (finfo->abspath == NULL) {
 		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
 	    }
 	    finfo->path = path;
@@ -211,7 +211,7 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
 	    finfo->abspath = absolutepath(pi->pid, dirfd, path);
-	    if(finfo->abspath == NULL) {
+	    if (finfo->abspath == NULL) {
 		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
 	    }
 	    finfo->path = path;
