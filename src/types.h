@@ -26,6 +26,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 typedef struct {
     char outname[16];
     char *path;
+    char *abspath;
     char *hash;
     int purpose;
 } FILE_INFO;

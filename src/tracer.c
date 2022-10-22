@@ -112,6 +112,24 @@ get_str_from_process(pid_t pid, void *addr)
     return strdup(buf);
 }
 
+char *
+absolutepath(pid_t pid, int dirfd, char *addr)
+{
+    char abs[PATH_MAX];
+    char symbpath[PATH_MAX];
+
+    if (*addr == '/') {
+	return strdup(addr);
+    }
+    if (dirfd == AT_FDCWD) {
+	sprintf(symbpath, "/proc/%d/cwd/%s", pid, addr);
+	return realpath(symbpath, NULL);
+    }
+
+    sprintf(symbpath, "/proc/%d/fd/%d/%s", pid, dirfd, addr);
+    return realpath(symbpath, NULL);
+}
+
 PROCESS_INFO *
 find(pid_t pid)
 {
@@ -151,10 +169,16 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    flags = (int) entry->entry.args[1];
 
 	    finfo = finfo_at(pi, fd);
+	    path = get_str_from_process(pi->pid, path);
 
-	    finfo->path = get_str_from_process(pi->pid, path);
+	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
+	    if (finfo->abspath == NULL) {
+		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
+	    }
+	    finfo->path = path;
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
+
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
@@ -163,9 +187,16 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 
 	    finfo = finfo_at(pi, fd);
 
-	    finfo->path = get_str_from_process(pi->pid, path);
+	    path = get_str_from_process(pi->pid, path);
+
+	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
+	    if (finfo->abspath == NULL) {
+		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
+	    }
+	    finfo->path = path;
 	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
+
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -175,30 +206,16 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    flags = (int) entry->entry.args[2];
 
 	    finfo = finfo_at(pi, fd);
-	    char *rpath = get_str_from_process(pi->pid, path);
+	    path = get_str_from_process(pi->pid, path);
 
 	    finfo->purpose = flags;
 	    sprintf(finfo->outname, "f%d", numfinfo++);
-
-	    if (dirfd == AT_FDCWD || *rpath == '/') {
-		// If it's an absolute path or relative to cwd
-		finfo->path = rpath;
-		break;
+	    finfo->abspath = absolutepath(pi->pid, dirfd, path);
+	    if (finfo->abspath == NULL) {
+		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
 	    }
+	    finfo->path = path;
 
-	    dir = pi->finfo + dirfd;
-	    long dir_path_length = strlen(dir->path);
-
-	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);
-
-	    // one for '/' and one for null terminator
-
-	    strcpy(buf, dir->path);
-	    buf[dir_path_length] = '/';
-	    strcpy(buf + dir_path_length + 1, rpath);
-	    free(rpath);
-
-	    finfo->path = buf;
 	    break;
 	case SYS_close:
 	    // int close(int fd);
@@ -207,11 +224,12 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    finfo = pi->finfo + fd;
 
 	    if (finfo->path != (char *) 0) {
-		finfo->hash = get_file_hash(finfo->path);
+		finfo->hash = get_file_hash(finfo->abspath);
 		record_fileuse(pi->outname, finfo->outname, finfo->path,
-			       finfo->purpose, finfo->hash);
+			       finfo->abspath, finfo->purpose, finfo->hash);
 
 		free(finfo->path);
+		free(finfo->abspath);
 		free(finfo->hash);
 		memset(finfo, 0, sizeof (FILE_INFO));
 	    }
