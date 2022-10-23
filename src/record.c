@@ -147,14 +147,16 @@ record_process_env(char *poutname, char **envp)
 }
 
 void
-record_fileuse(char *poutname, char *foutname, char *path, char *abspath,
-	       int purpose, char *hash)
+record_file(char *foutname, char *path, char *abspath)
 {
     record_triple(foutname, "a", "file", false);
     record_triple(foutname, "b:name", path, true);
     record_triple(foutname, "b:abspath", abspath, true);
-    record_triple(foutname, "b:hash", hash, true);
+}
 
+void
+record_fileuse(char *poutname, char *foutname, int purpose)
+{
     switch (purpose & O_ACCMODE) {
 	case O_RDONLY:
 	    record_triple(poutname, "b:reads", foutname, false);
@@ -166,6 +168,12 @@ record_fileuse(char *poutname, char *foutname, char *path, char *abspath,
 	    record_triple(poutname, "b:reads", foutname, false);
 	    record_triple(poutname, "b:writes", foutname, false);
     }
+}
+
+void
+record_hash(char *foutname, char *hash)
+{
+    record_triple(foutname, "b:hash", hash, true);
 }
 
 void

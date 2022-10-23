@@ -35,7 +35,9 @@ PROCESS_INFO *pinfo;
 int numpinfo;
 int pinfo_size;
 
-int numfinfo = 0;
+FILE_INFO *finfo;
+int numfinfo;
+int finfo_size;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
@@ -45,11 +47,15 @@ int numfinfo = 0;
  */
 
 void
-init_pinfo(void)
+init(void)
 {
     pinfo_size = DEFAULT_PINFO_SIZE;
     pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
     numpinfo = -1;
+
+    finfo_size = DEFAULT_FINFO_SIZE;
+    finfo = calloc(finfo_size, sizeof (FILE_INFO));
+    numfinfo = -1;
 }
 
 PROCESS_INFO *
@@ -66,6 +72,66 @@ next_pinfo(void)
 }
 
 FILE_INFO *
+next_finfo(void)
+{
+    if (numfinfo == finfo_size - 1) {
+	finfo_size *= 2;
+	finfo = reallocarray(finfo, finfo_size, sizeof (FILE_INFO));
+	if (finfo == NULL)
+	    error(EXIT_FAILURE, errno, "reallocating file info array");
+    }
+
+    return finfo + (++numfinfo);
+}
+
+void
+finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
+{
+    self->was_hash_printed = 0;
+    self->path = path;
+    self->abspath = abspath;
+    self->hash = hash;
+    sprintf(self->outname, "f%d", numfinfo);
+
+    record_file(self->outname, path, abspath);
+}
+
+PROCESS_INFO *
+find_pinfo(pid_t pid)
+{
+    int i = numpinfo;
+
+    while (i >= 0 && pinfo[i].pid != pid) {
+	--i;
+    }
+
+    if (i < 0) {
+	error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
+    }
+
+    return pinfo + i;
+}
+
+FILE_INFO *
+find_finfo(char *abspath, char *hash)
+{
+    int i = numfinfo;
+
+    while (i >= 0
+	   && !(!strcmp(abspath, finfo[i].abspath)
+		&& ((hash == NULL && finfo[i].hash == NULL)
+		    || !strcmp(hash, finfo[i].hash)))) {
+	--i;
+    }
+
+    if (i < 0) {
+	return NULL;
+    }
+
+    return finfo + i;
+}
+
+int *
 finfo_at(PROCESS_INFO *pi, int index)
 {
     if (index >= pi->finfo_size) {
@@ -80,7 +146,10 @@ finfo_at(PROCESS_INFO *pi, int index)
 	    error(EXIT_FAILURE, errno,
 		  "reallocating file info array in process %d", pi->pid);
 	}
-	memset(pi->finfo + prev_size, 0, pi->finfo_size - prev_size);
+
+	for (int i = prev_size; i < pi->finfo_size; ++i) {
+	    pi->finfo[i] = -1;
+	}
     }
 
     return pi->finfo + index;
@@ -130,20 +199,35 @@ absolutepath(pid_t pid, int dirfd, char *addr)
     return realpath(symbpath, NULL);
 }
 
-PROCESS_INFO *
-find(pid_t pid)
+static void
+handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
 {
-    size_t i = numpinfo;
+    path = get_str_from_process(pi->pid, path);
+    char *abspath = absolutepath(pi->pid, dirfd, path);
 
-    while (i >= 0 && pinfo[i].pid != pid) {
-	--i;
+    if (abspath == NULL)
+	error(EXIT_FAILURE, errno, "on handle_open absolutepath");
+
+    char *hash = NULL;
+
+    FILE_INFO *f = NULL;
+
+    if ((purpose & O_ACCMODE) == O_RDONLY) {
+	hash = get_file_hash(abspath);
+	f = find_finfo(abspath, hash);
     }
 
-    if (i < 0) {
-	error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
+    if (!f) {
+	f = next_finfo();
+	finfo_new(f, path, abspath, hash);
     }
+    *finfo_at(pi, fd) = f - finfo;
 
-    return pinfo + i;
+    record_fileuse(pi->outname, f->outname, purpose);
+    if (!f->was_hash_printed && (purpose & O_ACCMODE) == O_RDONLY) {
+	f->was_hash_printed = 1;
+	record_hash(f->outname, hash);
+    }
 }
 
 static void
@@ -156,9 +240,10 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 
     int fd;
     void *path;
+    char *abspath;
     int flags;
     int dirfd;
-    FILE_INFO *finfo;
+    FILE_INFO *f;
     FILE_INFO *dir;
 
     switch (entry->entry.nr) {
@@ -168,35 +253,14 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    finfo = finfo_at(pi, fd);
-	    path = get_str_from_process(pi->pid, path);
-
-	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
-	    if (finfo->abspath == NULL) {
-		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
-	    }
-	    finfo->path = path;
-	    finfo->purpose = flags;
-	    sprintf(finfo->outname, "f%d", numfinfo++);
-
+	    handle_open(pi, fd, AT_FDCWD, path, flags);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
 	    path = (void *) entry->entry.args[0];
 
-	    finfo = finfo_at(pi, fd);
-
-	    path = get_str_from_process(pi->pid, path);
-
-	    finfo->abspath = absolutepath(pi->pid, AT_FDCWD, path);
-	    if (finfo->abspath == NULL) {
-		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
-	    }
-	    finfo->path = path;
-	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
-	    sprintf(finfo->outname, "f%d", numfinfo++);
-
+	    handle_open(pi, fd, AT_FDCWD, path, O_CREAT | O_WRONLY | O_TRUNC);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -205,33 +269,22 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    finfo = finfo_at(pi, fd);
-	    path = get_str_from_process(pi->pid, path);
-
-	    finfo->purpose = flags;
-	    sprintf(finfo->outname, "f%d", numfinfo++);
-	    finfo->abspath = absolutepath(pi->pid, dirfd, path);
-	    if (finfo->abspath == NULL) {
-		error(EXIT_FAILURE, errno, "SYS_open absolutepath");
-	    }
-	    finfo->path = path;
-
+	    handle_open(pi, fd, dirfd, path, flags);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    finfo = pi->finfo + fd;
+	    if (pi->finfo[fd] != -1) {
+		f = finfo + pi->finfo[fd];
 
-	    if (finfo->path != (char *) 0) {
-		finfo->hash = get_file_hash(finfo->abspath);
-		record_fileuse(pi->outname, finfo->outname, finfo->path,
-			       finfo->abspath, finfo->purpose, finfo->hash);
+		if (!f->was_hash_printed) {
+		    f->hash = get_file_hash(f->abspath);
+		    record_hash(f->outname, f->hash);
+		    f->was_hash_printed = 1;
+		}
 
-		free(finfo->path);
-		free(finfo->abspath);
-		free(finfo->hash);
-		memset(finfo, 0, sizeof (FILE_INFO));
+		pi->finfo[fd] = -1;
 	    }
 	    break;
 	case SYS_execve:
@@ -247,15 +300,18 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    break;
 	case SYS_fork:
 	    // pid_t fork(void);
-	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    record_process_create(pi->outname,
+				  find_pinfo(exit->exit.rval)->outname);
 	    break;
 	case SYS_vfork:
 	    // pid_t vfork(void);
-	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    record_process_create(pi->outname,
+				  find_pinfo(exit->exit.rval)->outname);
 	    break;
 	case SYS_clone:
 	    // int clone(...);
-	    record_process_create(pi->outname, find(exit->exit.rval)->outname);
+	    record_process_create(pi->outname,
+				  find_pinfo(exit->exit.rval)->outname);
 	    break;
     }
 }
@@ -265,8 +321,8 @@ tracer_main(pid_t pid, char **envp)
 {
     waitpid(pid, NULL, 0);
 
-    record_process_start(pid, find(pid)->outname);
-    record_process_env(find(pid)->outname, envp);
+    record_process_start(pid, find_pinfo(pid)->outname);
+    record_process_env(find_pinfo(pid)->outname, envp);
 
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
@@ -294,7 +350,7 @@ tracer_main(pid_t pid, char **envp)
 	if (WIFSTOPPED(status)) {
 	    switch (WSTOPSIG(status)) {
 		case SIGTRAP | 0x80:
-		    process_state = find(pid);
+		    process_state = find_pinfo(pid);
 
 		    if (ptrace
 			(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info),
@@ -336,7 +392,7 @@ tracer_main(pid_t pid, char **envp)
 	} else if (WIFEXITED(status))  // child process exited
 	{
 	    --running;
-	    record_process_end(find(pid)->outname);
+	    record_process_end(find_pinfo(pid)->outname);
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
@@ -377,6 +433,6 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
-    init_pinfo();
+    init();
     trace(pid, envp);
 }
