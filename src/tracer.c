@@ -188,7 +188,7 @@ absolutepath(pid_t pid, int dirfd, char *addr)
     char symbpath[PATH_MAX];
 
     if (*addr == '/') {
-	return strdup(addr);
+	return realpath(addr, NULL);
     }
     if (dirfd == AT_FDCWD) {
 	sprintf(symbpath, "/proc/%d/cwd/%s", pid, addr);
