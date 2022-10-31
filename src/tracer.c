@@ -11,8 +11,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<error.h>
 #include	<stdlib.h>
 #include	<stdio.h>
+#include	<stddef.h>
 #include	<string.h>
 #include	<unistd.h>
+#include	<fcntl.h>
 
 #include	<sys/ptrace.h>
 #include	<linux/ptrace.h>
@@ -117,10 +119,9 @@ find_finfo(char *abspath, char *hash)
 {
     int i = numfinfo;
 
-    while (i >= 0
-	   && !(!strcmp(abspath, finfo[i].abspath)
-		&& ((hash == NULL && finfo[i].hash == NULL)
-		    || !strcmp(hash, finfo[i].hash)))) {
+    while (i >= 0 && !(!strcmp(abspath, finfo[i].abspath)
+		       && ((hash == NULL && finfo[i].hash == NULL)
+			   || !strcmp(hash, finfo[i].hash)))) {
 	--i;
     }
 
@@ -231,8 +232,80 @@ handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
 }
 
 static void
-handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
-	       const struct ptrace_syscall_info *exit)
+handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
+{
+    char *abspath = absolutepath(pi->pid, olddirfd, oldpath);
+    char *hash = get_file_hash(abspath);
+
+    FILE_INFO *f = find_finfo(abspath, hash);
+
+    if (!f) {
+	f = next_finfo();
+	finfo_new(f, oldpath, abspath, hash);
+    } else {
+	free(oldpath);
+    }
+
+    pi->entry_info = (void *) (f - finfo);
+    if (pi->entry_info == NULL)
+	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
+}
+
+static void
+handle_rename_exit(PROCESS_INFO *pi, int newdirfd, char *newpath)
+{
+    FILE_INFO *from = finfo + (ptrdiff_t) pi->entry_info;
+
+    char *abspath = absolutepath(pi->pid, newdirfd, newpath);
+
+    FILE_INFO *to = next_finfo();
+
+    finfo_new(to, newpath, abspath, from->hash);
+
+    record_rename(pi->outname, from->outname, to->outname);
+}
+
+static void
+handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
+{
+    int olddirfd;
+    char *oldpath;
+
+    switch (entry->entry.nr) {
+	case SYS_rename:
+	    // int rename(const char *oldpath, const char *newpath);
+	    oldpath =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[0]);
+	    handle_rename_entry(pi, AT_FDCWD, oldpath);
+	    break;
+	case SYS_renameat:
+	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
+	    // const char *newpath);
+	    olddirfd = entry->entry.args[0];
+	    oldpath =
+		    get_str_from_process(pinfo->pid,
+					 (void *) entry->entry.args[1]);
+	    handle_rename_entry(pi, olddirfd, oldpath);
+	    break;
+	case SYS_renameat2:
+	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
+	    // 
+	    // 
+	    // 
+	    // const char *newpath, unsigned int flags);
+	    olddirfd = entry->entry.args[0];
+	    oldpath =
+		    get_str_from_process(pinfo->pid,
+					 (void *) entry->entry.args[1]);
+	    handle_rename_entry(pi, olddirfd, oldpath);
+	    break;
+    }
+}
+
+static void
+handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
+		    const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
 	return;			       // return on syscall failure
@@ -245,6 +318,8 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
     int dirfd;
     FILE_INFO *f;
     FILE_INFO *dir;
+    int newdirfd;
+    char *newpath;
 
     switch (entry->entry.nr) {
 	case SYS_open:
@@ -297,6 +372,37 @@ handle_syscall(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
 	    record_process_start(pi->pid, pi->outname);
+	    break;
+	case SYS_rename:
+	    // int rename(const char *oldpath, const char *newpath);
+	    newpath =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[1]);
+
+	    handle_rename_exit(pi, AT_FDCWD, newpath);
+	    break;
+	case SYS_renameat:
+	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
+	    // const char *newpath);
+	    newdirfd = entry->entry.args[2];
+	    newpath =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[3]);
+
+	    handle_rename_exit(pi, newdirfd, newpath);
+	    break;
+	case SYS_renameat2:
+	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
+	    // 
+	    // 
+	    // 
+	    // const char *newpath, unsigned int flags);
+	    newdirfd = entry->entry.args[2];
+	    newpath =
+		    get_str_from_process(pinfo->pid,
+					 (void *) entry->entry.args[3]);
+
+	    handle_rename_exit(pi, newdirfd, newpath);
 	    break;
 	case SYS_fork:
 	    // pid_t fork(void);
@@ -362,10 +468,11 @@ tracer_main(pid_t pid, char **envp)
 		    switch (info.op) {
 			case PTRACE_SYSCALL_INFO_ENTRY:
 			    process_state->state = info;
+			    handle_syscall_entry(process_state, &info);
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall(process_state, &process_state->state,
-					   &info);
+			    handle_syscall_exit(process_state,
+						&process_state->state, &info);
 			    break;
 			default:
 			    error(EXIT_FAILURE, errno,

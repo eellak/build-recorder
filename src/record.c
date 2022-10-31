@@ -171,6 +171,19 @@ record_fileuse(char *poutname, char *foutname, int purpose)
 }
 
 void
+record_rename(char *poutname, char *from_foutname, char *to_foutname)
+{
+    static int rename = 0;
+    char unnamed_mod[16];
+
+    sprintf(unnamed_mod, "_:rename%d", rename++);
+
+    record_triple(poutname, "b:rename", unnamed_mod, false);
+    record_triple(unnamed_mod, "b:rename-from", from_foutname, false);
+    record_triple(unnamed_mod, "b:rename-to", to_foutname, false);
+}
+
+void
 record_hash(char *foutname, char *hash)
 {
     record_triple(foutname, "b:hash", hash, true);
