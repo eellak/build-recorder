@@ -147,19 +147,50 @@ record_process_env(char *poutname, char **envp)
 }
 
 void
-record_fileuse(char *poutname, char *foutname, char *path, int purpose,
-	       char *hash)
+record_file(char *foutname, char *path, char *abspath)
 {
     record_triple(foutname, "a", "file", false);
     record_triple(foutname, "b:name", path, true);
-    record_triple(foutname, "b:hash", hash, true);
+    record_triple(foutname, "b:abspath", abspath, true);
+}
 
-    if (purpose & O_RDONLY) {
-	record_triple(poutname, "b:reads", foutname, false);
-    } else if (purpose & O_WRONLY) {
-	record_triple(poutname, "b:writes", foutname, false);
-    } else {			       // O_RDWR
-	record_triple(poutname, "b:reads", foutname, false);
-	record_triple(poutname, "b:writes", foutname, false);
+void
+record_fileuse(char *poutname, char *foutname, int purpose)
+{
+    switch (purpose & O_ACCMODE) {
+	case O_RDONLY:
+	    record_triple(poutname, "b:reads", foutname, false);
+	    break;
+	case O_WRONLY:
+	    record_triple(poutname, "b:writes", foutname, false);
+	    break;
+	case O_RDWR:
+	    record_triple(poutname, "b:reads", foutname, false);
+	    record_triple(poutname, "b:writes", foutname, false);
     }
+}
+
+void
+record_rename(char *poutname, char *from_foutname, char *to_foutname)
+{
+    static int rename = 0;
+    char unnamed_mod[16];
+
+    sprintf(unnamed_mod, "_:rename%d", rename++);
+
+    record_triple(poutname, "b:rename", unnamed_mod, false);
+    record_triple(unnamed_mod, "b:rename-from", from_foutname, false);
+    record_triple(unnamed_mod, "b:rename-to", to_foutname, false);
+}
+
+void
+record_hash(char *foutname, char *hash)
+{
+    record_triple(foutname, "b:hash", hash, true);
+}
+
+void
+record_process_create(char *p1outname, char *p2outname)
+{
+    record_triple(p1outname, "b:creates", p2outname, false);
 }

@@ -11,8 +11,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<error.h>
 #include	<stdlib.h>
 #include	<stdio.h>
+#include	<stddef.h>
 #include	<string.h>
 #include	<unistd.h>
+#include	<fcntl.h>
 
 #include	<sys/ptrace.h>
 #include	<linux/ptrace.h>
@@ -35,7 +37,9 @@ PROCESS_INFO *pinfo;
 int numpinfo;
 int pinfo_size;
 
-int numfinfo = 0;
+FILE_INFO *finfo;
+int numfinfo;
+int finfo_size;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
@@ -45,17 +49,21 @@ int numfinfo = 0;
  */
 
 void
-init_pinfo(void)
+init(void)
 {
     pinfo_size = DEFAULT_PINFO_SIZE;
     pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
     numpinfo = -1;
+
+    finfo_size = DEFAULT_FINFO_SIZE;
+    finfo = calloc(finfo_size, sizeof (FILE_INFO));
+    numfinfo = -1;
 }
 
 PROCESS_INFO *
 next_pinfo(void)
 {
-    if (numpinfo >= pinfo_size) {
+    if (numpinfo == pinfo_size - 1) {
 	pinfo_size *= 2;
 	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
 	if (pinfo == NULL)
@@ -66,6 +74,65 @@ next_pinfo(void)
 }
 
 FILE_INFO *
+next_finfo(void)
+{
+    if (numfinfo == finfo_size - 1) {
+	finfo_size *= 2;
+	finfo = reallocarray(finfo, finfo_size, sizeof (FILE_INFO));
+	if (finfo == NULL)
+	    error(EXIT_FAILURE, errno, "reallocating file info array");
+    }
+
+    return finfo + (++numfinfo);
+}
+
+void
+finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
+{
+    self->was_hash_printed = 0;
+    self->path = path;
+    self->abspath = abspath;
+    self->hash = hash;
+    sprintf(self->outname, "f%d", numfinfo);
+
+    record_file(self->outname, path, abspath);
+}
+
+PROCESS_INFO *
+find_pinfo(pid_t pid)
+{
+    int i = numpinfo;
+
+    while (i >= 0 && pinfo[i].pid != pid) {
+	--i;
+    }
+
+    if (i < 0) {
+	error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
+    }
+
+    return pinfo + i;
+}
+
+FILE_INFO *
+find_finfo(char *abspath, char *hash)
+{
+    int i = numfinfo;
+
+    while (i >= 0 && !(!strcmp(abspath, finfo[i].abspath)
+		       && ((hash == NULL && finfo[i].hash == NULL)
+			   || !strcmp(hash, finfo[i].hash)))) {
+	--i;
+    }
+
+    if (i < 0) {
+	return NULL;
+    }
+
+    return finfo + i;
+}
+
+int *
 finfo_at(PROCESS_INFO *pi, int index)
 {
     if (index >= pi->finfo_size) {
@@ -80,7 +147,10 @@ finfo_at(PROCESS_INFO *pi, int index)
 	    error(EXIT_FAILURE, errno,
 		  "reallocating file info array in process %d", pi->pid);
 	}
-	memset(pi->finfo + prev_size, 0, pi->finfo_size - prev_size);
+
+	for (int i = prev_size; i < pi->finfo_size; ++i) {
+	    pi->finfo[i] = -1;
+	}
     }
 
     return pi->finfo + index;
@@ -112,25 +182,131 @@ get_str_from_process(pid_t pid, void *addr)
     return strdup(buf);
 }
 
-PROCESS_INFO *
-find(pid_t pid)
+char *
+absolutepath(pid_t pid, int dirfd, char *addr)
 {
-    size_t i = numpinfo;
+    char abs[PATH_MAX];
+    char symbpath[PATH_MAX];
 
-    while (i >= 0 && pinfo[i].pid != pid) {
-	--i;
+    if (*addr == '/') {
+	return realpath(addr, NULL);
+    }
+    if (dirfd == AT_FDCWD) {
+	sprintf(symbpath, "/proc/%d/cwd/%s", pid, addr);
+	return realpath(symbpath, NULL);
     }
 
-    if (i < 0) {
-	error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
-    }
-
-    return pinfo + i;
+    sprintf(symbpath, "/proc/%d/fd/%d/%s", pid, dirfd, addr);
+    return realpath(symbpath, NULL);
 }
 
 static void
-handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
-	       const struct ptrace_syscall_info *exit)
+handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
+{
+    path = get_str_from_process(pi->pid, path);
+    char *abspath = absolutepath(pi->pid, dirfd, path);
+
+    if (abspath == NULL)
+	error(EXIT_FAILURE, errno, "on handle_open absolutepath");
+
+    char *hash = NULL;
+
+    FILE_INFO *f = NULL;
+
+    if ((purpose & O_ACCMODE) == O_RDONLY) {
+	hash = get_file_hash(abspath);
+	f = find_finfo(abspath, hash);
+    }
+
+    if (!f) {
+	f = next_finfo();
+	finfo_new(f, path, abspath, hash);
+    }
+    *finfo_at(pi, fd) = f - finfo;
+
+    record_fileuse(pi->outname, f->outname, purpose);
+    if (!f->was_hash_printed && (purpose & O_ACCMODE) == O_RDONLY) {
+	f->was_hash_printed = 1;
+	record_hash(f->outname, hash);
+    }
+}
+
+static void
+handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
+{
+    char *abspath = absolutepath(pi->pid, olddirfd, oldpath);
+    char *hash = get_file_hash(abspath);
+
+    FILE_INFO *f = find_finfo(abspath, hash);
+
+    if (!f) {
+	f = next_finfo();
+	finfo_new(f, oldpath, abspath, hash);
+    } else {
+	free(oldpath);
+    }
+
+    pi->entry_info = (void *) (f - finfo);
+    if (pi->entry_info == NULL)
+	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
+}
+
+static void
+handle_rename_exit(PROCESS_INFO *pi, int newdirfd, char *newpath)
+{
+    FILE_INFO *from = finfo + (ptrdiff_t) pi->entry_info;
+
+    char *abspath = absolutepath(pi->pid, newdirfd, newpath);
+
+    FILE_INFO *to = next_finfo();
+
+    finfo_new(to, newpath, abspath, from->hash);
+
+    record_rename(pi->outname, from->outname, to->outname);
+}
+
+static void
+handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
+{
+    int olddirfd;
+    char *oldpath;
+
+    switch (entry->entry.nr) {
+	case SYS_rename:
+	    // int rename(const char *oldpath, const char *newpath);
+	    oldpath =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[0]);
+	    handle_rename_entry(pi, AT_FDCWD, oldpath);
+	    break;
+	case SYS_renameat:
+	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
+	    // const char *newpath);
+	    olddirfd = entry->entry.args[0];
+	    oldpath =
+		    get_str_from_process(pinfo->pid,
+					 (void *) entry->entry.args[1]);
+	    handle_rename_entry(pi, olddirfd, oldpath);
+	    break;
+	case SYS_renameat2:
+	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
+	    // 
+	    // 
+	    // 
+	    // 
+	    // const char *newpath, unsigned int flags);
+	    olddirfd = entry->entry.args[0];
+	    oldpath =
+		    get_str_from_process(pinfo->pid,
+					 (void *) entry->entry.args[1]);
+	    handle_rename_entry(pi, olddirfd, oldpath);
+	    break;
+    }
+}
+
+static void
+handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
+		    const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
 	return;			       // return on syscall failure
@@ -138,10 +314,13 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 
     int fd;
     void *path;
+    char *abspath;
     int flags;
     int dirfd;
-    FILE_INFO *finfo;
+    FILE_INFO *f;
     FILE_INFO *dir;
+    int newdirfd;
+    char *newpath;
 
     switch (entry->entry.nr) {
 	case SYS_open:
@@ -150,22 +329,14 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    finfo = finfo_at(pinfo, fd);
-
-	    finfo->path = get_str_from_process(pinfo->pid, path);
-	    finfo->purpose = flags;
-	    sprintf(finfo->outname, "f%d", numfinfo++);
+	    handle_open(pi, fd, AT_FDCWD, path, flags);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
 	    path = (void *) entry->entry.args[0];
 
-	    finfo = finfo_at(pinfo, fd);
-
-	    finfo->path = get_str_from_process(pinfo->pid, path);
-	    finfo->purpose = O_CREAT | O_WRONLY | O_TRUNC;
-	    sprintf(finfo->outname, "f%d", numfinfo++);
+	    handle_open(pi, fd, AT_FDCWD, path, O_CREAT | O_WRONLY | O_TRUNC);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -174,57 +345,82 @@ handle_syscall(PROCESS_INFO *pinfo, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    finfo = finfo_at(pinfo, fd);
-	    char *rpath = get_str_from_process(pinfo->pid, path);
-
-	    finfo->purpose = flags;
-	    sprintf(finfo->outname, "f%d", numfinfo++);
-
-	    if (dirfd == AT_FDCWD || *rpath == '/') {
-		// If it's an absolute path or relative to cwd
-		finfo->path = rpath;
-		break;
-	    }
-
-	    dir = pinfo->finfo + dirfd;
-	    long dir_path_length = strlen(dir->path);
-
-	    char *buf = (char *) malloc(dir_path_length + strlen(rpath) + 2);
-
-	    // one for '/' and one for null terminator
-
-	    strcpy(buf, dir->path);
-	    buf[dir_path_length] = '/';
-	    strcpy(buf + dir_path_length + 1, rpath);
-	    free(rpath);
-
-	    finfo->path = buf;
+	    handle_open(pi, fd, dirfd, path, flags);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    finfo = pinfo->finfo + fd;
+	    if (pi->finfo[fd] != -1) {
+		f = finfo + pi->finfo[fd];
 
-	    if (finfo->path != (char *) 0) {
-		finfo->hash = get_file_hash(finfo->path);
-		record_fileuse(pinfo->outname, finfo->outname, finfo->path,
-			       finfo->purpose, finfo->hash);
+		if (!f->was_hash_printed) {
+		    f->hash = get_file_hash(f->abspath);
+		    record_hash(f->outname, f->hash);
+		    f->was_hash_printed = 1;
+		}
+
+		pi->finfo[fd] = -1;
 	    }
 	    break;
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pinfo->pid, pinfo->outname);
+	    record_process_start(pi->pid, pi->outname);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pinfo->pid, pinfo->outname);
+	    record_process_start(pi->pid, pi->outname);
 	    break;
-	default:
-	    return;
+	case SYS_rename:
+	    // int rename(const char *oldpath, const char *newpath);
+	    newpath =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[1]);
+
+	    handle_rename_exit(pi, AT_FDCWD, newpath);
+	    break;
+	case SYS_renameat:
+	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
+	    // const char *newpath);
+	    newdirfd = entry->entry.args[2];
+	    newpath =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[3]);
+
+	    handle_rename_exit(pi, newdirfd, newpath);
+	    break;
+	case SYS_renameat2:
+	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
+	    // 
+	    // 
+	    // 
+	    // 
+	    // const char *newpath, unsigned int flags);
+	    newdirfd = entry->entry.args[2];
+	    newpath =
+		    get_str_from_process(pinfo->pid,
+					 (void *) entry->entry.args[3]);
+
+	    handle_rename_exit(pi, newdirfd, newpath);
+	    break;
+	case SYS_fork:
+	    // pid_t fork(void);
+	    record_process_create(pi->outname,
+				  find_pinfo(exit->exit.rval)->outname);
+	    break;
+	case SYS_vfork:
+	    // pid_t vfork(void);
+	    record_process_create(pi->outname,
+				  find_pinfo(exit->exit.rval)->outname);
+	    break;
+	case SYS_clone:
+	    // int clone(...);
+	    record_process_create(pi->outname,
+				  find_pinfo(exit->exit.rval)->outname);
+	    break;
     }
 }
 
@@ -262,7 +458,7 @@ tracer_main(PROCESS_INFO *pi, char **envp)
 	if (WIFSTOPPED(status)) {
 	    switch (WSTOPSIG(status)) {
 		case SIGTRAP | 0x80:
-		    process_state = find(pid);
+		    process_state = find_pinfo(pid);
 
 		    if (ptrace
 			(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info),
@@ -274,10 +470,11 @@ tracer_main(PROCESS_INFO *pi, char **envp)
 		    switch (info.op) {
 			case PTRACE_SYSCALL_INFO_ENTRY:
 			    process_state->state = info;
+			    handle_syscall_entry(process_state, &info);
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall(process_state, &process_state->state,
-					   &info);
+			    handle_syscall_exit(process_state,
+						&process_state->state, &info);
 			    break;
 			default:
 			    error(EXIT_FAILURE, errno,
@@ -304,7 +501,7 @@ tracer_main(PROCESS_INFO *pi, char **envp)
 	} else if (WIFEXITED(status))  // child process exited
 	{
 	    --running;
-	    record_process_end(find(pid)->outname);
+	    record_process_end(find_pinfo(pid)->outname);
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
@@ -345,6 +542,6 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
-    init_pinfo();
+    init();
     trace(pid, envp);
 }
