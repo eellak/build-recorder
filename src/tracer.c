@@ -284,7 +284,7 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 	    // const char *newpath);
 	    olddirfd = entry->entry.args[0];
 	    oldpath =
-		    get_str_from_process(pinfo->pid,
+		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[1]);
 	    handle_rename_entry(pi, olddirfd, oldpath);
 	    break;
@@ -293,7 +293,7 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 	    // const char *newpath, unsigned int flags);
 	    olddirfd = entry->entry.args[0];
 	    oldpath =
-		    get_str_from_process(pinfo->pid,
+		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[1]);
 	    handle_rename_entry(pi, olddirfd, oldpath);
 	    break;
