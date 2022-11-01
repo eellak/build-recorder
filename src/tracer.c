@@ -289,10 +289,7 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 	    handle_rename_entry(pi, olddirfd, oldpath);
 	    break;
 	case SYS_renameat2:
-	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
-	    // 
-	    // 
-	    // 
+	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd,
 	    // const char *newpath, unsigned int flags);
 	    olddirfd = entry->entry.args[0];
 	    oldpath =
@@ -393,6 +390,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    break;
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd, 
+	    // 
 	    // 
 	    // 
 	    // 
