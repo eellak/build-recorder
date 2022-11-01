@@ -108,7 +108,7 @@ find_pinfo(pid_t pid)
     }
 
     if (i < 0) {
-	error(EXIT_FAILURE, errno, "process %d isn't in array\n", pid);
+	return NULL;
     }
 
     return pinfo + i;
@@ -317,6 +317,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
     FILE_INFO *dir;
     int newdirfd;
     char *newpath;
+    PROCESS_INFO *p;
 
     switch (entry->entry.nr) {
 	case SYS_open:
@@ -400,18 +401,30 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    break;
 	case SYS_fork:
 	    // pid_t fork(void);
-	    record_process_create(pi->outname,
-				  find_pinfo(exit->exit.rval)->outname);
+	    p = find_pinfo(exit->exit.rval);
+	    if (!p) {
+		error(EXIT_FAILURE, 0, "find_pinfo on SYS_fork handle");
+	    }
+
+	    record_process_create(pi->outname, p->outname);
 	    break;
 	case SYS_vfork:
 	    // pid_t vfork(void);
-	    record_process_create(pi->outname,
-				  find_pinfo(exit->exit.rval)->outname);
+	    p = find_pinfo(exit->exit.rval);
+	    if (!p) {
+		error(EXIT_FAILURE, 0, "find_pinfo on SYS_vfork handle");
+	    }
+
+	    record_process_create(pi->outname, p->outname);
 	    break;
 	case SYS_clone:
 	    // int clone(...);
-	    record_process_create(pi->outname,
-				  find_pinfo(exit->exit.rval)->outname);
+	    p = find_pinfo(exit->exit.rval);
+	    if (!p) {
+		error(EXIT_FAILURE, 0, "find_pinfo on SYS_clone handle");
+	    }
+
+	    record_process_create(pi->outname, pi->outname);
 	    break;
     }
 }
@@ -421,8 +434,14 @@ tracer_main(pid_t pid, char **envp)
 {
     waitpid(pid, NULL, 0);
 
-    record_process_start(pid, find_pinfo(pid)->outname);
-    record_process_env(find_pinfo(pid)->outname, envp);
+    PROCESS_INFO *p = find_pinfo(pid);
+
+    if (!p) {
+	error(EXIT_FAILURE, 0, "find_pinfo on tracer_main initial waitpid");
+    }
+
+    record_process_start(pid, p->outname);
+    record_process_env(p->outname, envp);
 
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
@@ -451,6 +470,9 @@ tracer_main(pid_t pid, char **envp)
 	    switch (WSTOPSIG(status)) {
 		case SIGTRAP | 0x80:
 		    process_state = find_pinfo(pid);
+		    if (!process_state) {
+			error(EXIT_FAILURE, 0, "find_pinfo on syscall sigtrap");
+		    }
 
 		    if (ptrace
 			(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info),
@@ -493,7 +515,13 @@ tracer_main(pid_t pid, char **envp)
 	} else if (WIFEXITED(status))  // child process exited
 	{
 	    --running;
-	    record_process_end(find_pinfo(pid)->outname);
+
+	    p = find_pinfo(pid);
+	    if (!p) {
+		error(EXIT_FAILURE, 0, "find_pinfo on WIFEXITED");
+	    }
+
+	    record_process_end(p->outname);
 	} else {
 	    error(EXIT_FAILURE, errno, "expected stop or tracee death\n");
 	}
