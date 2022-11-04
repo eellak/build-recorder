@@ -47,4 +47,5 @@ typedef struct {
     int finfo_size;
     struct ptrace_syscall_info state;
     void *entry_info;
+    char ignore_one_sigstop;
 } PROCESS_INFO;
