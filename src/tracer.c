@@ -239,18 +239,21 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
     char *abspath = absolutepath(pi->pid, dirfd, path);
     char *hash = get_file_hash(abspath);
 
-    if (!find_finfo(abspath, hash)) {
-	FILE_INFO *f = next_finfo();
+    FILE_INFO *f;
+
+    if (!(f = find_finfo(abspath, hash))) {
+	f = next_finfo();
 
 	finfo_new(f, path, abspath, hash);
 	record_hash(f->outname, f->hash);
-	record_exec(pi->outname, f->outname);
 	f->was_hash_printed = 1;
     } else {
 	free(abspath);
 	free(hash);
 	free(path);
     }
+
+    record_exec(pi->outname, f->outname);
 }
 
 static void
