@@ -244,6 +244,7 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
 
 	finfo_new(f, path, abspath, hash);
 	record_hash(f->outname, f->hash);
+	record_exec(pi->outname, f->outname);
 	f->was_hash_printed = 1;
     } else {
 	free(abspath);
