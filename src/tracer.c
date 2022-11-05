@@ -232,6 +232,27 @@ handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
 }
 
 static void
+handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
+{
+    record_process_start(pi->pid, pi->outname);
+
+    char *abspath = absolutepath(pi->pid, dirfd, path);
+    char *hash = get_file_hash(abspath);
+
+    if (!find_finfo(abspath, hash)) {
+	FILE_INFO *f = next_finfo();
+
+	finfo_new(f, path, abspath, hash);
+	record_hash(f->outname, f->hash);
+	f->was_hash_printed = 1;
+    } else {
+	free(abspath);
+	free(hash);
+	free(path);
+    }
+}
+
+static void
 handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
     char *abspath = absolutepath(pi->pid, olddirfd, oldpath);
@@ -296,6 +317,16 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[1]);
 	    handle_rename_entry(pi, olddirfd, oldpath);
+	    break;
+	case SYS_execve:
+	    pi->entry_info =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[0]);
+	    break;
+	case SYS_execveat:
+	    pi->entry_info =
+		    get_str_from_process(pi->pid,
+					 (void *) entry->entry.args[1]);
 	    break;
     }
 }
@@ -362,13 +393,18 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
-	    record_process_start(pi->pid, pi->outname);
+	    path = pi->entry_info;
+
+	    handle_execve(pi, AT_FDCWD, path);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
 	    // int flags);
-	    record_process_start(pi->pid, pi->outname);
+	    dirfd = entry->entry.args[0];
+	    path = pi->entry_info;
+
+	    handle_execve(pi, dirfd, path);
 	    break;
 	case SYS_rename:
 	    // int rename(const char *oldpath, const char *newpath);
