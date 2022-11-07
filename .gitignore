@@ -1,6 +1,15 @@
 # VS Code
 .vscode
 
+# Vim swp files
+*.swp
+
+# Ctags
+tags
+
+# Indent
+*.*~
+
 # Prerequisites
 *.d
 
