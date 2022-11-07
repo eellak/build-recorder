@@ -575,12 +575,12 @@ tracer_main(PROCESS_INFO *pi, char **envp)
 	{
 	    --running;
 
-	    p = find_pinfo(pid);
-	    if (!p) {
+	    process_state = find_pinfo(pid);
+	    if (!process_state) {
 		error(EXIT_FAILURE, 0, "find_pinfo on WIFEXITED");
 	    }
 
-	    record_process_end(p->outname);
+	    record_process_end(process_state->outname);
 	}
     }
 }
