@@ -194,3 +194,9 @@ record_process_create(char *p1outname, char *p2outname)
 {
     record_triple(p1outname, "b:creates", p2outname, false);
 }
+
+void
+record_exec(char *poutname, char *foutname)
+{
+    record_triple(poutname, "b:executable", foutname, false);
+}
