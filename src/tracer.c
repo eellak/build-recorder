@@ -130,7 +130,8 @@ find_finfo(char *abspath, char *hash)
     int i = numfinfo;
 
     while (i >= 0 && !(!strcmp(abspath, finfo[i].abspath)
-		       && ((hash == NULL && finfo[i].hash == NULL)
+		       && (!(finfo[i].was_hash_printed)
+			   || (hash == NULL && finfo[i].hash == NULL)
 			   || !strcmp(hash, finfo[i].hash)))) {
 	--i;
     }
