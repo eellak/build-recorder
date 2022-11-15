@@ -26,8 +26,8 @@ record_start(char *fname)
     fout = fopen(fname, "w");
 
     fprintf(fout,
-	    "@base <http://example.org/> .\n"
 	    "@prefix b:  <http://example.org/build-recorder#> .\n"
+	    "@prefix :  <http://example.org/build-recorder/run#> .\n"
 	    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n"
 	    "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n");
 }
@@ -149,7 +149,7 @@ record_process_env(char *poutname, char **envp)
 void
 record_file(char *foutname, char *path, char *abspath)
 {
-    record_triple(foutname, "a", "file", false);
+    record_triple(foutname, "a", "b:file", false);
     record_triple(foutname, "b:name", path, true);
     record_triple(foutname, "b:abspath", abspath, true);
 }

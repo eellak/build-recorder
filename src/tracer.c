@@ -89,7 +89,7 @@ next_finfo(void)
 void
 pinfo_new(PROCESS_INFO *self, pid_t pid, char ignore_one_sigstop)
 {
-    sprintf(self->outname, "p%d", numpinfo);
+    sprintf(self->outname, ":p%d", numpinfo);
     self->pid = pid;
     self->finfo_size = DEFAULT_FINFO_SIZE;
     self->finfo = calloc(self->finfo_size, sizeof (FILE_INFO));
@@ -103,7 +103,7 @@ finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
     self->path = path;
     self->abspath = abspath;
     self->hash = hash;
-    sprintf(self->outname, "f%d", numfinfo);
+    sprintf(self->outname, ":f%d", numfinfo);
 
     record_file(self->outname, path, abspath);
 }
