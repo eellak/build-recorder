@@ -1,4 +1,4 @@
-EXE = ../build-recorder
+EXE = ../build_recorder
 
 TEST_CASES = \
 	compile_single_file \
