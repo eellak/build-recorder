@@ -31,6 +31,8 @@ AC_CHECK_LIB(crypto, SHA1_Init,, AC_MSG_ERROR([cannot find libcrypto]))
 
 dnl Checks for headers
 AC_CHECK_HEADER([linux/ptrace.h],, AC_MSG_ERROR([cannot find linux/ptrace.h]))
+AC_CHECK_HEADER([linux/version.h],, AC_MSG_ERROR([cannot find linux/version.h]))
+AC_CHECK_HEADER([linux/openat2.h],, AC_MSG_ERROR([cannot find linux/openat2.h]))
 AC_CHECK_HEADER([openssl/sha.h],, AC_MSG_ERROR([cannot find openssl/sha.h]))
 AC_CHECK_HEADER([sys/mman.h],, AC_MSG_ERROR([cannot find sys/mman.h]))
 AC_CHECK_HEADER([sys/ptrace.h],, AC_MSG_ERROR([cannot find sys/ptrace.h]))
@@ -44,6 +46,8 @@ AC_CHECK_HEADER([sysexits.h],, AC_MSG_ERROR([cannot find sysexits.h]))
 
 dnl Checks for typedefs and structures
 AC_CHECK_TYPE([struct ptrace_syscall_info],, AC_MSG_ERROR([cannot find struct ptrace_syscall_info]), [#include <linux/ptrace.h>])
+
+AC_CHECK_TYPE([struct open_how],, AC_MSG_ERROR([cannot find struct open_how]), [#include <linux/openat2.h>])
 
 AC_CHECK_TYPE([pid_t],, AC_MSG_ERROR([cannot find pid_t]), [#include <sys/types.h>])
 
