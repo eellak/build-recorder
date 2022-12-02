@@ -23,6 +23,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/syscall.h>
 #include	<sys/wait.h>
 #include	<linux/limits.h>
+#include	<linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+#  include	<linux/openat2.h>
+#endif
 
 #include	"types.h"
 #include	"hash.h"
@@ -404,6 +409,18 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 
 	    handle_open(pi, fd, dirfd, path, flags);
 	    break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+	case SYS_openat2:
+	    // int openat(int dirfd, const char *pathname, struct open_how
+	    // *how, size_t size);
+	    fd = (int) exit->exit.rval;
+	    dirfd = (int) entry->entry.args[0];
+	    path = (void *) entry->entry.args[1];
+	    flags = (int) ((struct open_how *) entry->entry.args[2])->flags;
+
+	    handle_open(pi, fd, dirfd, path, flags);
+	    break;
+#endif
 	case SYS_close:
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
