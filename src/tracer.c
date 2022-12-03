@@ -209,6 +209,34 @@ absolutepath(pid_t pid, int dirfd, char *addr)
     return realpath(symbpath, NULL);
 }
 
+char *
+find_in_path(char *path)
+{
+    static char buf[PATH_MAX];
+    char *ret;
+    char *PATH = strdup(getenv("PATH"));
+    char *it = PATH;
+    char *last;
+
+    do {
+	last = strchr(it, ':');
+	if (last) {
+	    *last = '\0';
+	}
+
+	sprintf(buf, "%s/%s", it, path);
+	ret = realpath(buf, NULL);
+	if (!ret && (errno != 0 && errno != ENOENT)) {
+	    error(EXIT_FAILURE, errno, "on find_in_path realpath");
+	}
+	it = last + 1;
+    } while (last != NULL && ret == NULL);
+
+    free(PATH);
+
+    return ret;
+}
+
 static void
 handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
 {
@@ -250,6 +278,19 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
     record_process_start(pi->pid, pi->outname);
 
     char *abspath = absolutepath(pi->pid, dirfd, path);
+
+    if (!abspath) {
+	if (errno != ENOENT) {
+	    error(EXIT_FAILURE, errno, "on handle_execve absolutepath");
+	}
+
+	abspath = find_in_path(path);
+
+	if (!abspath) {
+	    error(EXIT_FAILURE, errno, "on handle_execve find_in_path");
+	}
+    }
+
     char *hash = get_file_hash(abspath);
 
     FILE_INFO *f;
@@ -480,7 +521,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 }
 
 static void
-tracer_main(pid_t pid, char **envp)
+tracer_main(pid_t pid, char *path, char **envp)
 {
     waitpid(pid, NULL, 0);
 
@@ -492,6 +533,7 @@ tracer_main(pid_t pid, char **envp)
 
     record_process_start(pid, p->outname);
     record_process_env(p->outname, envp);
+    handle_execve(p, AT_FDCWD, path);
 
     ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
@@ -592,7 +634,7 @@ tracer_main(pid_t pid, char **envp)
 }
 
 void
-trace(pid_t pid, char **envp)
+trace(pid_t pid, char *path, char **envp)
 {
     PROCESS_INFO *pi;
 
@@ -600,7 +642,7 @@ trace(pid_t pid, char **envp)
 
     pinfo_new(pi, pid, 0);
 
-    tracer_main(pid, envp);
+    tracer_main(pid, path, envp);
 }
 
 void
@@ -623,5 +665,5 @@ run_and_record_fnames(char **av, char **envp)
 	run_tracee(av);
 
     init();
-    trace(pid, envp);
+    trace(pid, *av, envp);
 }
