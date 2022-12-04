@@ -526,7 +526,6 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 {
     waitpid(pi->pid, NULL, 0);
 
-    record_process_start(pi->pid, pi->outname);
     record_process_env(pi->outname, envp);
     handle_execve(pi, AT_FDCWD, path);
 
