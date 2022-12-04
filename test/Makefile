@@ -3,8 +3,8 @@ EXE = ../build_recorder
 TEST_CASES = \
 	compile_single_file \
 	compile_link_file \
-	complie_file_include \
-	complie_file_sysinclude \
+	compile_file_include \
+	compile_file_sysinclude \
 	compile_two_files \
 	$(EMPTY)
 
