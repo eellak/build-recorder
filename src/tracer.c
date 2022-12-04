@@ -532,7 +532,6 @@ tracer_main(pid_t pid, char *path, char **envp)
 	error(EXIT_FAILURE, 0, "find_pinfo on tracer_main initial waitpid");
     }
 
-    record_process_start(pid, p->outname);
     record_process_env(p->outname, envp);
     handle_execve(p, AT_FDCWD, path);
 
