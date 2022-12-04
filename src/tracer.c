@@ -89,7 +89,7 @@ next_finfo(void)
 void
 pinfo_new(PROCESS_INFO *self, pid_t pid, char ignore_one_sigstop)
 {
-    sprintf(self->outname, "p%d", numpinfo);
+    sprintf(self->outname, ":p%d", numpinfo);
     self->pid = pid;
     self->finfo_size = DEFAULT_FINFO_SIZE;
     self->finfo = calloc(self->finfo_size, sizeof (FILE_INFO));
@@ -103,7 +103,7 @@ finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
     self->path = path;
     self->abspath = abspath;
     self->hash = hash;
-    sprintf(self->outname, "f%d", numfinfo);
+    sprintf(self->outname, ":f%d", numfinfo);
 
     record_file(self->outname, path, abspath);
 }
@@ -130,7 +130,8 @@ find_finfo(char *abspath, char *hash)
     int i = numfinfo;
 
     while (i >= 0 && !(!strcmp(abspath, finfo[i].abspath)
-		       && ((hash == NULL && finfo[i].hash == NULL)
+		       && (!(finfo[i].was_hash_printed)
+			   || (hash == NULL && finfo[i].hash == NULL)
 			   || !strcmp(hash, finfo[i].hash)))) {
 	--i;
     }
@@ -209,6 +210,34 @@ absolutepath(pid_t pid, int dirfd, char *addr)
     return realpath(symbpath, NULL);
 }
 
+char *
+find_in_path(char *path)
+{
+    static char buf[PATH_MAX];
+    char *ret;
+    char *PATH = strdup(getenv("PATH"));
+    char *it = PATH;
+    char *last;
+
+    do {
+	last = strchr(it, ':');
+	if (last) {
+	    *last = '\0';
+	}
+
+	sprintf(buf, "%s/%s", it, path);
+	ret = realpath(buf, NULL);
+	if (!ret && (errno != 0 && errno != ENOENT)) {
+	    error(EXIT_FAILURE, errno, "on find_in_path realpath");
+	}
+	it = last + 1;
+    } while (last != NULL && ret == NULL);
+
+    free(PATH);
+
+    return ret;
+}
+
 static void
 handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
 {
@@ -250,6 +279,19 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
     record_process_start(pi->pid, pi->outname);
 
     char *abspath = absolutepath(pi->pid, dirfd, path);
+
+    if (!abspath) {
+	if (errno != ENOENT) {
+	    error(EXIT_FAILURE, errno, "on handle_execve absolutepath");
+	}
+
+	abspath = find_in_path(path);
+
+	if (!abspath) {
+	    error(EXIT_FAILURE, errno, "on handle_execve find_in_path");
+	}
+    }
+
     char *hash = get_file_hash(abspath);
 
     FILE_INFO *f;
@@ -480,12 +522,13 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 }
 
 static void
-tracer_main(PROCESS_INFO *pi, char **envp)
+tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 {
     waitpid(pi->pid, NULL, 0);
 
     record_process_start(pi->pid, pi->outname);
     record_process_env(pi->outname, envp);
+    handle_execve(pi, AT_FDCWD, path);
 
     ptrace(PTRACE_SETOPTIONS, pi->pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
@@ -586,7 +629,7 @@ tracer_main(PROCESS_INFO *pi, char **envp)
 }
 
 void
-trace(pid_t pid, char **envp)
+trace(pid_t pid, char *path, char **envp)
 {
     PROCESS_INFO *pi;
 
@@ -594,7 +637,7 @@ trace(pid_t pid, char **envp)
 
     pinfo_new(pi, pid, 0);
 
-    tracer_main(pi, envp);
+    tracer_main(pi, path, envp);
 }
 
 void
@@ -617,5 +660,5 @@ run_and_record_fnames(char **av, char **envp)
 	run_tracee(av);
 
     init();
-    trace(pid, envp);
+    trace(pid, *av, envp);
 }
