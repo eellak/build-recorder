@@ -522,20 +522,14 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 }
 
 static void
-tracer_main(pid_t pid, char *path, char **envp)
+tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 {
-    waitpid(pid, NULL, 0);
+    waitpid(pi->pid, NULL, 0);
 
-    PROCESS_INFO *p = find_pinfo(pid);
+    record_process_env(pi->outname, envp);
+    handle_execve(pi, AT_FDCWD, path);
 
-    if (!p) {
-	error(EXIT_FAILURE, 0, "find_pinfo on tracer_main initial waitpid");
-    }
-
-    record_process_env(p->outname, envp);
-    handle_execve(p, AT_FDCWD, path);
-
-    ptrace(PTRACE_SETOPTIONS, pid, NULL,	// Options are inherited
+    ptrace(PTRACE_SETOPTIONS, pi->pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
 	   PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
@@ -543,11 +537,11 @@ tracer_main(pid_t pid, char *path, char **envp)
     static size_t running = 1;
 
     int status;
-    pid_t tracee_pid = pid;
+    int pid;
     PROCESS_INFO *process_state;
 
     // Starting tracee
-    if (ptrace(PTRACE_SYSCALL, tracee_pid, NULL, NULL) < 0) {
+    if (ptrace(PTRACE_SYSCALL, pi->pid, NULL, NULL) < 0) {
 	error(EXIT_FAILURE, errno, "tracee PTRACE_SYSCALL failed");
     }
 
@@ -623,12 +617,12 @@ tracer_main(pid_t pid, char *path, char **envp)
 	{
 	    --running;
 
-	    p = find_pinfo(pid);
-	    if (!p) {
+	    process_state = find_pinfo(pid);
+	    if (!process_state) {
 		error(EXIT_FAILURE, 0, "find_pinfo on WIFEXITED");
 	    }
 
-	    record_process_end(p->outname);
+	    record_process_end(process_state->outname);
 	}
     }
 }
@@ -642,7 +636,7 @@ trace(pid_t pid, char *path, char **envp)
 
     pinfo_new(pi, pid, 0);
 
-    tracer_main(pid, path, envp);
+    tracer_main(pi, path, envp);
 }
 
 void
