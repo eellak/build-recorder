@@ -125,14 +125,11 @@ find_pinfo(pid_t pid)
 }
 
 FILE_INFO *
-find_finfo(char *abspath, char *hash)
+find_finfo(char *abspath)
 {
     int i = numfinfo;
 
-    while (i >= 0 && !(!strcmp(abspath, finfo[i].abspath)
-		       && (!(finfo[i].was_hash_printed)
-			   || (hash == NULL && finfo[i].hash == NULL)
-			   || !strcmp(hash, finfo[i].hash)))) {
+    while (i >= 0 && strcmp(abspath, finfo[i].abspath)) {
 	--i;
     }
 
@@ -247,29 +244,27 @@ handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
     if (abspath == NULL)
 	error(EXIT_FAILURE, errno, "on handle_open absolutepath");
 
-    char *hash = NULL;
-
     FILE_INFO *f = NULL;
 
     if ((purpose & O_ACCMODE) == O_RDONLY) {
-	hash = get_file_hash(abspath);
-	f = find_finfo(abspath, hash);
+	f = find_finfo(abspath);
     }
 
     if (!f) {
 	f = next_finfo();
+	char *hash = get_file_hash(abspath);
+
 	finfo_new(f, path, abspath, hash);
     } else {
 	free(path);
 	free(abspath);
-	free(hash);
     }
     *finfo_at(pi, fd) = f - finfo;
 
     record_fileuse(pi->outname, f->outname, purpose);
     if (!f->was_hash_printed && (purpose & O_ACCMODE) == O_RDONLY) {
 	f->was_hash_printed = 1;
-	record_hash(f->outname, hash);
+	record_hash(f->outname, f->hash);
     }
 }
 
@@ -292,19 +287,17 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
 	}
     }
 
-    char *hash = get_file_hash(abspath);
-
     FILE_INFO *f;
 
-    if (!(f = find_finfo(abspath, hash))) {
+    if (!(f = find_finfo(abspath))) {
 	f = next_finfo();
+	char *hash = get_file_hash(abspath);
 
 	finfo_new(f, path, abspath, hash);
 	record_hash(f->outname, f->hash);
 	f->was_hash_printed = 1;
     } else {
 	free(abspath);
-	free(hash);
 	free(path);
     }
 
@@ -315,17 +308,17 @@ static void
 handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
     char *abspath = absolutepath(pi->pid, olddirfd, oldpath);
-    char *hash = get_file_hash(abspath);
 
-    FILE_INFO *f = find_finfo(abspath, hash);
+    FILE_INFO *f = find_finfo(abspath);
 
     if (!f) {
 	f = next_finfo();
+	char *hash = get_file_hash(abspath);
+
 	finfo_new(f, oldpath, abspath, hash);
     } else {
 	free(oldpath);
 	free(abspath);
-	free(hash);
     }
 
     pi->entry_info = (void *) (f - finfo);
