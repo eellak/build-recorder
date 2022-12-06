@@ -66,6 +66,8 @@ get_cmdline(pid_t pid)
     char data[CMD_LINE_SIZE + 1];
     ssize_t n = read(fd, data, CMD_LINE_SIZE);
 
+    close(fd);
+
     if (n < 0) {
 	return NULL;
     }
