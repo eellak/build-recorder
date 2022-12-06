@@ -16,10 +16,10 @@ compile_single_file: f1.c
 compile_link_file: f1.c
 	$(EXE) -o $@.out gcc $^
 
-complie_file_include: f2.c
+compile_file_include: f2.c
 	$(EXE) -o $@.out gcc -c $^
 
-complie_file_sysinclude: f3.c
+compile_file_sysinclude: f3.c
 	$(EXE) -o $@.out gcc -c $^
 
 compile_two_files: f4.c f5.c
