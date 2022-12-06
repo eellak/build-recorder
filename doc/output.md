@@ -24,7 +24,7 @@ The special types and predicates used are listed below:
 - name: the file name
 - size: the file size, in bytes
 - hash: a hexadecimal string of a unique, git-compatible, hash of the content of the file
-- abspath: the files absolute file
+- abspath: the file's absolute file
 
 
 
@@ -43,12 +43,12 @@ The special types and predicates used are listed below:
 - Range: File
 
 #### creates
--Domain: Process
--Range: Process
+- Domain: Process
+- Range: Process
 
 #### executable
--Domain: Process
--Range: File
+- Domain: Process
+- Range: File
 
 
 
