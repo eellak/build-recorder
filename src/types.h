@@ -75,6 +75,6 @@ void finfo_new(FILE_INFO *self, int numfinfo, char *path, char *abspath,
 
 void context_init(CONTEXT *self);
 FILE_INFO *context_next_finfo(CONTEXT *self);
-FILE_INFO *context_find_finfo(CONTEXT *self, char *abspath, char *hash);
+FILE_INFO *context_find_finfo(const CONTEXT *self, char *abspath, char *hash);
 PROCESS_INFO *context_next_pinfo(CONTEXT *self);
-PROCESS_INFO *context_find_pinfo(CONTEXT *self, pid_t pid);
+PROCESS_INFO *context_find_pinfo(const CONTEXT *self, pid_t pid);

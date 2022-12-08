@@ -91,7 +91,7 @@ context_next_finfo(CONTEXT *self)
 }
 
 FILE_INFO *
-context_find_finfo(CONTEXT *self, char *abspath, char *hash)
+context_find_finfo(const CONTEXT *self, char *abspath, char *hash)
 {
     int i = self->numfinfo;
 
@@ -125,7 +125,7 @@ context_next_pinfo(CONTEXT *self)
 }
 
 PROCESS_INFO *
-context_find_pinfo(CONTEXT *self, pid_t pid)
+context_find_pinfo(const CONTEXT *self, pid_t pid)
 {
     int i = self->numpinfo;
 
