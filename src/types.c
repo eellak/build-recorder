@@ -62,18 +62,22 @@ finfo_new(FILE_INFO *self, int numfinfo, char *path, char *abspath, char *hash)
     self->hash = hash;
 }
 
-/* FINFOS methods */
+/* CONTEXT methods */
 
 void
-finfos_init(FINFOS *self)
+context_init(CONTEXT *self)
 {
     self->finfo_size = DEFAULT_FINFO_SIZE;
     self->finfo = calloc(self->finfo_size, sizeof (FILE_INFO));
     self->numfinfo = -1;
+
+    self->pinfo_size = DEFAULT_PINFO_SIZE;
+    self->pinfo = calloc(self->pinfo_size, sizeof (PROCESS_INFO));
+    self->numpinfo = -1;
 }
 
 FILE_INFO *
-finfos_next_finfo(FINFOS *self)
+context_next_finfo(CONTEXT *self)
 {
     if (self->numfinfo == self->finfo_size - 1) {
 	self->finfo_size *= 2;
@@ -87,7 +91,7 @@ finfos_next_finfo(FINFOS *self)
 }
 
 FILE_INFO *
-finfos_find_finfo(FINFOS *self, char *abspath, char *hash)
+context_find_finfo(CONTEXT *self, char *abspath, char *hash)
 {
     int i = self->numfinfo;
 
@@ -105,18 +109,8 @@ finfos_find_finfo(FINFOS *self, char *abspath, char *hash)
     return self->finfo + i;
 }
 
-/* PINFOS methods */
-
-void
-pinfos_init(PINFOS *self)
-{
-    self->pinfo_size = DEFAULT_PINFO_SIZE;
-    self->pinfo = calloc(self->pinfo_size, sizeof (PROCESS_INFO));
-    self->numpinfo = -1;
-}
-
 PROCESS_INFO *
-pinfos_next_pinfo(PINFOS *self)
+context_next_pinfo(CONTEXT *self)
 {
     if (self->numpinfo == self->pinfo_size - 1) {
 	self->pinfo_size *= 2;
@@ -131,7 +125,7 @@ pinfos_next_pinfo(PINFOS *self)
 }
 
 PROCESS_INFO *
-pinfos_find_pinfo(PINFOS *self, pid_t pid)
+context_find_pinfo(CONTEXT *self, pid_t pid)
 {
     int i = self->numpinfo;
 

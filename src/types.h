@@ -54,13 +54,11 @@ typedef struct {
     FILE_INFO *finfo;
     int numfinfo;
     int finfo_size;
-} FINFOS;
 
-typedef struct {
     PROCESS_INFO *pinfo;
     int numpinfo;
     int pinfo_size;
-} PINFOS;
+} CONTEXT;
 
 /* PROCESS_INFO methods */
 void pinfo_new(PROCESS_INFO *self, int numpinfo, pid_t pid,
@@ -71,16 +69,12 @@ int *pinfo_finfo_at(PROCESS_INFO *self, int index);
 void finfo_new(FILE_INFO *self, int numfinfo, char *path, char *abspath,
 	       char *hash);
 
-/* FINFOS methods */
+/* CONTEXT methods */
 #define DEFAULT_FINFO_SIZE	32
-
-void finfos_init(FINFOS *self);
-FILE_INFO *finfos_next_finfo(FINFOS *self);
-FILE_INFO *finfos_find_finfo(FINFOS *self, char *abspath, char *hash);
-
-/* PINFOS methods */
 #define DEFAULT_PINFO_SIZE	32
 
-void pinfos_init(PINFOS *self);
-PROCESS_INFO *pinfos_next_pinfo(PINFOS *self);
-PROCESS_INFO *pinfos_find_pinfo(PINFOS *self, pid_t pid);
+void context_init(CONTEXT *self);
+FILE_INFO *context_next_finfo(CONTEXT *self);
+FILE_INFO *context_find_finfo(CONTEXT *self, char *abspath, char *hash);
+PROCESS_INFO *context_next_pinfo(CONTEXT *self);
+PROCESS_INFO *context_find_pinfo(CONTEXT *self, pid_t pid);
