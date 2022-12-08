@@ -49,3 +49,38 @@ typedef struct {
     void *entry_info;
     char ignore_one_sigstop;
 } PROCESS_INFO;
+
+typedef struct {
+    FILE_INFO *finfo;
+    int numfinfo;
+    int finfo_size;
+} FINFOS;
+
+typedef struct {
+    PROCESS_INFO *pinfo;
+    int numpinfo;
+    int pinfo_size;
+} PINFOS;
+
+/* PROCESS_INFO methods */
+void pinfo_new(PROCESS_INFO *self, int numpinfo, pid_t pid,
+	       char ignore_one_sigstop);
+int *pinfo_finfo_at(PROCESS_INFO *self, int index);
+
+/* FILE_INFO methods */
+void finfo_new(FILE_INFO *self, int numfinfo, char *path, char *abspath,
+	       char *hash);
+
+/* FINFOS methods */
+#define DEFAULT_FINFO_SIZE	32
+
+void finfos_init(FINFOS *self);
+FILE_INFO *finfos_next_finfo(FINFOS *self);
+FILE_INFO *finfos_find_finfo(FINFOS *self, char *abspath, char *hash);
+
+/* PINFOS methods */
+#define DEFAULT_PINFO_SIZE	32
+
+void pinfos_init(PINFOS *self);
+PROCESS_INFO *pinfos_next_pinfo(PINFOS *self);
+PROCESS_INFO *pinfos_find_pinfo(PINFOS *self, pid_t pid);

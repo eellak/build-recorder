@@ -87,4 +87,6 @@
 /* project-specific types */
 -TFILE_INFO
 -TPROCESS_INFO
+-TFINFOS
+-TPINFOS
 

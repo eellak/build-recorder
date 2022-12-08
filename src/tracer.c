@@ -33,139 +33,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
  * its size and the array size
  */
 
-PROCESS_INFO *pinfo;
-int numpinfo;
-int pinfo_size;
-
-FILE_INFO *finfo;
-int numfinfo;
-int finfo_size;
-
-#define	DEFAULT_PINFO_SIZE	32
-#define	DEFAULT_FINFO_SIZE	32
-
-/*
- * memory allocators for pinfo
- */
-
-void
-init(void)
-{
-    pinfo_size = DEFAULT_PINFO_SIZE;
-    pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
-    numpinfo = -1;
-
-    finfo_size = DEFAULT_FINFO_SIZE;
-    finfo = calloc(finfo_size, sizeof (FILE_INFO));
-    numfinfo = -1;
-}
-
-PROCESS_INFO *
-next_pinfo(void)
-{
-    if (numpinfo == pinfo_size - 1) {
-	pinfo_size *= 2;
-	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
-	if (pinfo == NULL)
-	    error(EXIT_FAILURE, errno, "reallocating process info array");
-    }
-
-    return pinfo + (++numpinfo);
-}
-
-FILE_INFO *
-next_finfo(void)
-{
-    if (numfinfo == finfo_size - 1) {
-	finfo_size *= 2;
-	finfo = reallocarray(finfo, finfo_size, sizeof (FILE_INFO));
-	if (finfo == NULL)
-	    error(EXIT_FAILURE, errno, "reallocating file info array");
-    }
-
-    return finfo + (++numfinfo);
-}
-
-void
-pinfo_new(PROCESS_INFO *self, pid_t pid, char ignore_one_sigstop)
-{
-    sprintf(self->outname, ":p%d", numpinfo);
-    self->pid = pid;
-    self->finfo_size = DEFAULT_FINFO_SIZE;
-    self->finfo = calloc(self->finfo_size, sizeof (FILE_INFO));
-    self->ignore_one_sigstop = ignore_one_sigstop;
-}
-
-void
-finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
-{
-    self->was_hash_printed = 0;
-    self->path = path;
-    self->abspath = abspath;
-    self->hash = hash;
-    sprintf(self->outname, ":f%d", numfinfo);
-
-    record_file(self->outname, path, abspath);
-}
-
-PROCESS_INFO *
-find_pinfo(pid_t pid)
-{
-    int i = numpinfo;
-
-    while (i >= 0 && pinfo[i].pid != pid) {
-	--i;
-    }
-
-    if (i < 0) {
-	return NULL;
-    }
-
-    return pinfo + i;
-}
-
-FILE_INFO *
-find_finfo(char *abspath, char *hash)
-{
-    int i = numfinfo;
-
-    while (i >= 0 && !(!strcmp(abspath, finfo[i].abspath)
-		       && (!(finfo[i].was_hash_printed)
-			   || (hash == NULL && finfo[i].hash == NULL)
-			   || !strcmp(hash, finfo[i].hash)))) {
-	--i;
-    }
-
-    if (i < 0) {
-	return NULL;
-    }
-
-    return finfo + i;
-}
-
-int *
-finfo_at(PROCESS_INFO *pi, int index)
-{
-    if (index >= pi->finfo_size) {
-	int prev_size = pi->finfo_size;
-
-	do {
-	    pi->finfo_size *= 2;
-	} while (index >= pi->finfo_size);
-
-	pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
-	if (pi->finfo == NULL) {
-	    error(EXIT_FAILURE, errno,
-		  "reallocating file info array in process %d", pi->pid);
-	}
-
-	for (int i = prev_size; i < pi->finfo_size; ++i) {
-	    pi->finfo[i] = -1;
-	}
-    }
-
-    return pi->finfo + index;
-}
+FINFOS *finfos;
+PINFOS *pinfos;
 
 char *
 get_str_from_process(pid_t pid, void *addr)
@@ -253,18 +122,19 @@ handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
 
     if ((purpose & O_ACCMODE) == O_RDONLY) {
 	hash = get_file_hash(abspath);
-	f = find_finfo(abspath, hash);
+	f = finfos_find_finfo(finfos, abspath, hash);
     }
 
     if (!f) {
-	f = next_finfo();
-	finfo_new(f, path, abspath, hash);
+	f = finfos_next_finfo(finfos);
+	finfo_new(f, finfos->numfinfo, path, abspath, hash);
+	record_file(f->outname, f->path, f->abspath);
     } else {
 	free(path);
 	free(abspath);
 	free(hash);
     }
-    *finfo_at(pi, fd) = f - finfo;
+    *pinfo_finfo_at(pi, fd) = f - finfos->finfo;
 
     record_fileuse(pi->outname, f->outname, purpose);
     if (!f->was_hash_printed && (purpose & O_ACCMODE) == O_RDONLY) {
@@ -296,10 +166,11 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
 
     FILE_INFO *f;
 
-    if (!(f = find_finfo(abspath, hash))) {
-	f = next_finfo();
+    if (!(f = finfos_find_finfo(finfos, abspath, hash))) {
+	f = finfos_next_finfo(finfos);
 
-	finfo_new(f, path, abspath, hash);
+	finfo_new(f, finfos->numfinfo, path, abspath, hash);
+	record_file(f->outname, f->path, f->abspath);
 	record_hash(f->outname, f->hash);
 	f->was_hash_printed = 1;
     } else {
@@ -317,18 +188,19 @@ handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
     char *abspath = absolutepath(pi->pid, olddirfd, oldpath);
     char *hash = get_file_hash(abspath);
 
-    FILE_INFO *f = find_finfo(abspath, hash);
+    FILE_INFO *f = finfos_find_finfo(finfos, abspath, hash);
 
     if (!f) {
-	f = next_finfo();
-	finfo_new(f, oldpath, abspath, hash);
+	f = finfos_next_finfo(finfos);
+	finfo_new(f, finfos->numfinfo, oldpath, abspath, hash);
+	record_file(f->outname, f->path, f->abspath);
     } else {
 	free(oldpath);
 	free(abspath);
 	free(hash);
     }
 
-    pi->entry_info = (void *) (f - finfo);
+    pi->entry_info = (void *) (f - finfos->finfo);
     if (pi->entry_info == NULL)
 	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
 }
@@ -336,13 +208,14 @@ handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
 static void
 handle_rename_exit(PROCESS_INFO *pi, int newdirfd, char *newpath)
 {
-    FILE_INFO *from = finfo + (ptrdiff_t) pi->entry_info;
+    FILE_INFO *from = finfos->finfo + (ptrdiff_t) pi->entry_info;
 
     char *abspath = absolutepath(pi->pid, newdirfd, newpath);
 
-    FILE_INFO *to = next_finfo();
+    FILE_INFO *to = finfos_next_finfo(finfos);
 
-    finfo_new(to, newpath, abspath, from->hash);
+    finfo_new(to, finfos->numfinfo, newpath, abspath, from->hash);
+    record_file(to->outname, to->path, to->abspath);
 
     record_rename(pi->outname, from->outname, to->outname);
 }
@@ -350,11 +223,11 @@ handle_rename_exit(PROCESS_INFO *pi, int newdirfd, char *newpath)
 static void
 handle_create_process(PROCESS_INFO *pi, pid_t child)
 {
-    PROCESS_INFO *child_pi = find_pinfo(child);
+    PROCESS_INFO *child_pi = pinfos_find_pinfo(pinfos, child);
 
     if (!child_pi) {
-	child_pi = next_pinfo();
-	pinfo_new(child_pi, child, 1);
+	child_pi = pinfos_next_pinfo(pinfos);
+	pinfo_new(child_pi, pinfos->numpinfo, child, 1);
     }
 
     record_process_create(pi->outname, child_pi->outname);
@@ -451,7 +324,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    fd = (int) entry->entry.args[0];
 
 	    if (pi->finfo[fd] != -1) {
-		f = finfo + pi->finfo[fd];
+		f = finfos->finfo + pi->finfo[fd];
 
 		if (!f->was_hash_printed) {
 		    f->hash = get_file_hash(f->abspath);
@@ -557,7 +430,7 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 	if (WIFSTOPPED(status)) {
 	    switch (WSTOPSIG(status)) {
 		case SIGTRAP | 0x80:
-		    process_state = find_pinfo(pid);
+		    process_state = pinfos_find_pinfo(pinfos, pid);
 		    if (!process_state) {
 			error(EXIT_FAILURE, 0, "find_pinfo on syscall sigtrap");
 		    }
@@ -587,7 +460,7 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 		case SIGSTOP:
 		    // We only want to ignore post-attach SIGSTOP, for the
 		    // rest we shouldn't mess with.
-		    if ((process_state = find_pinfo(pid))) {
+		    if ((process_state = pinfos_find_pinfo(pinfos, pid))) {
 			if (process_state->ignore_one_sigstop == 0) {
 			    restart_sig = WSTOPSIG(status);
 			} else {
@@ -596,9 +469,9 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 			}
 		    } else {
 			++running;
-			PROCESS_INFO *pi = next_pinfo();
+			PROCESS_INFO *pi = pinfos_next_pinfo(pinfos);
 
-			pinfo_new(pi, pid, 0);
+			pinfo_new(pi, pinfos->numpinfo, pid, 0);
 		    }
 		    break;
 		case SIGTRAP:
@@ -617,7 +490,7 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 	{
 	    --running;
 
-	    process_state = find_pinfo(pid);
+	    process_state = pinfos_find_pinfo(pinfos, pid);
 	    if (!process_state) {
 		error(EXIT_FAILURE, 0, "find_pinfo on WIFEXITED");
 	    }
@@ -632,9 +505,9 @@ trace(pid_t pid, char *path, char **envp)
 {
     PROCESS_INFO *pi;
 
-    pi = next_pinfo();
+    pi = pinfos_next_pinfo(pinfos);
 
-    pinfo_new(pi, pid, 0);
+    pinfo_new(pi, pinfos->numpinfo, pid, 0);
 
     tracer_main(pi, path, envp);
 }
@@ -658,6 +531,9 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
-    init();
+    pinfos = malloc(sizeof (PINFOS));
+    finfos = malloc(sizeof (FINFOS));
+    pinfos_init(pinfos);
+    finfos_init(finfos);
     trace(pid, *av, envp);
 }
