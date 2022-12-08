@@ -407,7 +407,6 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp, CONTEXT *ctx)
 
     int status;
     int pid;
-    PROCESS_INFO *process_state;
 
     // Starting tracee
     if (ptrace(PTRACE_SYSCALL, pi->pid, NULL, NULL) < 0) {
@@ -426,8 +425,8 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp, CONTEXT *ctx)
 	if (WIFSTOPPED(status)) {
 	    switch (WSTOPSIG(status)) {
 		case SIGTRAP | 0x80:
-		    process_state = context_find_pinfo(ctx, pid);
-		    if (!process_state) {
+		    pi = context_find_pinfo(ctx, pid);
+		    if (!pi) {
 			error(EXIT_FAILURE, 0, "find_pinfo on syscall sigtrap");
 		    }
 
@@ -440,12 +439,11 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp, CONTEXT *ctx)
 
 		    switch (info.op) {
 			case PTRACE_SYSCALL_INFO_ENTRY:
-			    process_state->state = info;
-			    handle_syscall_entry(ctx, process_state, &info);
+			    pi->state = info;
+			    handle_syscall_entry(ctx, pi, &info);
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall_exit(ctx, process_state,
-						&process_state->state, &info);
+			    handle_syscall_exit(ctx, pi, &pi->state, &info);
 			    break;
 			default:
 			    error(EXIT_FAILURE, errno,
@@ -456,12 +454,12 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp, CONTEXT *ctx)
 		case SIGSTOP:
 		    // We only want to ignore post-attach SIGSTOP, for the
 		    // rest we shouldn't mess with.
-		    if ((process_state = context_find_pinfo(ctx, pid))) {
-			if (process_state->ignore_one_sigstop == 0) {
+		    if ((pi = context_find_pinfo(ctx, pid))) {
+			if (pi->ignore_one_sigstop == 0) {
 			    restart_sig = WSTOPSIG(status);
 			} else {
 			    ++running;
-			    process_state->ignore_one_sigstop = 0;
+			    pi->ignore_one_sigstop = 0;
 			}
 		    } else {
 			++running;
@@ -486,12 +484,12 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp, CONTEXT *ctx)
 	{
 	    --running;
 
-	    process_state = context_find_pinfo(ctx, pid);
-	    if (!process_state) {
+	    pi = context_find_pinfo(ctx, pid);
+	    if (!pi) {
 		error(EXIT_FAILURE, 0, "find_pinfo on WIFEXITED");
 	    }
 
-	    record_process_end(process_state->outname);
+	    record_process_end(pi->outname);
 	}
     }
 }
