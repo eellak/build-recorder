@@ -28,13 +28,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	"hash.h"
 #include	"record.h"
 
-/*
- * variables for the list of processes,
- * its size and the array size
- */
-
-CONTEXT *ctx;
-
 char *
 get_str_from_process(pid_t pid, void *addr)
 {
@@ -107,7 +100,8 @@ find_in_path(char *path)
 }
 
 static void
-handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
+handle_open(CONTEXT *ctx, PROCESS_INFO *pi, int fd, int dirfd, void *path,
+	    int purpose)
 {
     path = get_str_from_process(pi->pid, path);
     char *abspath = absolutepath(pi->pid, dirfd, path);
@@ -143,7 +137,7 @@ handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
 }
 
 static void
-handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
+handle_execve(CONTEXT *ctx, PROCESS_INFO *pi, int dirfd, char *path)
 {
     record_process_start(pi->pid, pi->outname);
 
@@ -182,7 +176,7 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
 }
 
 static void
-handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
+handle_rename_entry(CONTEXT *ctx, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
     char *abspath = absolutepath(pi->pid, olddirfd, oldpath);
     char *hash = get_file_hash(abspath);
@@ -205,7 +199,7 @@ handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
 }
 
 static void
-handle_rename_exit(PROCESS_INFO *pi, int newdirfd, char *newpath)
+handle_rename_exit(CONTEXT *ctx, PROCESS_INFO *pi, int newdirfd, char *newpath)
 {
     FILE_INFO *from = ctx->finfo + (ptrdiff_t) pi->entry_info;
 
@@ -220,7 +214,7 @@ handle_rename_exit(PROCESS_INFO *pi, int newdirfd, char *newpath)
 }
 
 static void
-handle_create_process(PROCESS_INFO *pi, pid_t child)
+handle_create_process(CONTEXT *ctx, PROCESS_INFO *pi, pid_t child)
 {
     PROCESS_INFO *child_pi = context_find_pinfo(ctx, child);
 
@@ -233,7 +227,8 @@ handle_create_process(PROCESS_INFO *pi, pid_t child)
 }
 
 static void
-handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
+handle_syscall_entry(CONTEXT *ctx, PROCESS_INFO *pi,
+		     const struct ptrace_syscall_info *entry)
 {
     int olddirfd;
     char *oldpath;
@@ -244,7 +239,7 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 	    oldpath =
 		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[0]);
-	    handle_rename_entry(pi, AT_FDCWD, oldpath);
+	    handle_rename_entry(ctx, pi, AT_FDCWD, oldpath);
 	    break;
 	case SYS_renameat:
 	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
@@ -253,7 +248,7 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 	    oldpath =
 		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[1]);
-	    handle_rename_entry(pi, olddirfd, oldpath);
+	    handle_rename_entry(ctx, pi, olddirfd, oldpath);
 	    break;
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd,
@@ -262,7 +257,7 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 	    oldpath =
 		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[1]);
-	    handle_rename_entry(pi, olddirfd, oldpath);
+	    handle_rename_entry(ctx, pi, olddirfd, oldpath);
 	    break;
 	case SYS_execve:
 	    pi->entry_info =
@@ -278,7 +273,8 @@ handle_syscall_entry(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry)
 }
 
 static void
-handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
+handle_syscall_exit(CONTEXT *ctx, PROCESS_INFO *pi,
+		    const struct ptrace_syscall_info *entry,
 		    const struct ptrace_syscall_info *exit)
 {
     if (exit->exit.rval < 0) {
@@ -300,14 +296,15 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[0];
 	    flags = (int) entry->entry.args[1];
 
-	    handle_open(pi, fd, AT_FDCWD, path, flags);
+	    handle_open(ctx, pi, fd, AT_FDCWD, path, flags);
 	    break;
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
 	    path = (void *) entry->entry.args[0];
 
-	    handle_open(pi, fd, AT_FDCWD, path, O_CREAT | O_WRONLY | O_TRUNC);
+	    handle_open(ctx, pi, fd, AT_FDCWD, path,
+			O_CREAT | O_WRONLY | O_TRUNC);
 	    break;
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
@@ -316,7 +313,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    path = (void *) entry->entry.args[1];
 	    flags = (int) entry->entry.args[2];
 
-	    handle_open(pi, fd, dirfd, path, flags);
+	    handle_open(ctx, pi, fd, dirfd, path, flags);
 	    break;
 	case SYS_close:
 	    // int close(int fd);
@@ -339,7 +336,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    // char *const envp[]);
 	    path = pi->entry_info;
 
-	    handle_execve(pi, AT_FDCWD, path);
+	    handle_execve(ctx, pi, AT_FDCWD, path);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
@@ -348,7 +345,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    dirfd = entry->entry.args[0];
 	    path = pi->entry_info;
 
-	    handle_execve(pi, dirfd, path);
+	    handle_execve(ctx, pi, dirfd, path);
 	    break;
 	case SYS_rename:
 	    // int rename(const char *oldpath, const char *newpath);
@@ -356,7 +353,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[1]);
 
-	    handle_rename_exit(pi, AT_FDCWD, newpath);
+	    handle_rename_exit(ctx, pi, AT_FDCWD, newpath);
 	    break;
 	case SYS_renameat:
 	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
@@ -366,7 +363,7 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[3]);
 
-	    handle_rename_exit(pi, newdirfd, newpath);
+	    handle_rename_exit(ctx, pi, newdirfd, newpath);
 	    break;
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd,
@@ -376,30 +373,30 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 		    get_str_from_process(pi->pid,
 					 (void *) entry->entry.args[3]);
 
-	    handle_rename_exit(pi, newdirfd, newpath);
+	    handle_rename_exit(ctx, pi, newdirfd, newpath);
 	    break;
 	case SYS_fork:
 	    // pid_t fork(void);
-	    handle_create_process(pi, exit->exit.rval);
+	    handle_create_process(ctx, pi, exit->exit.rval);
 	    break;
 	case SYS_vfork:
 	    // pid_t vfork(void);
-	    handle_create_process(pi, exit->exit.rval);
+	    handle_create_process(ctx, pi, exit->exit.rval);
 	    break;
 	case SYS_clone:
 	    // int clone(...);
-	    handle_create_process(pi, exit->exit.rval);
+	    handle_create_process(ctx, pi, exit->exit.rval);
 	    break;
     }
 }
 
 static void
-tracer_main(PROCESS_INFO *pi, char *path, char **envp)
+tracer_main(PROCESS_INFO *pi, char *path, char **envp, CONTEXT *ctx)
 {
     waitpid(pi->pid, NULL, 0);
 
     record_process_env(pi->outname, envp);
-    handle_execve(pi, AT_FDCWD, path);
+    handle_execve(ctx, pi, AT_FDCWD, path);
 
     ptrace(PTRACE_SETOPTIONS, pi->pid, NULL,	// Options are inherited
 	   PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE |
@@ -444,10 +441,10 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 		    switch (info.op) {
 			case PTRACE_SYSCALL_INFO_ENTRY:
 			    process_state->state = info;
-			    handle_syscall_entry(process_state, &info);
+			    handle_syscall_entry(ctx, process_state, &info);
 			    break;
 			case PTRACE_SYSCALL_INFO_EXIT:
-			    handle_syscall_exit(process_state,
+			    handle_syscall_exit(ctx, process_state,
 						&process_state->state, &info);
 			    break;
 			default:
@@ -502,13 +499,17 @@ tracer_main(PROCESS_INFO *pi, char *path, char **envp)
 void
 trace(pid_t pid, char *path, char **envp)
 {
+    CONTEXT ctx;
+
+    context_init(&ctx);
+
     PROCESS_INFO *pi;
 
-    pi = context_next_pinfo(ctx);
+    pi = context_next_pinfo(&ctx);
 
-    pinfo_new(pi, ctx->numpinfo, pid, 0);
+    pinfo_new(pi, ctx.numpinfo, pid, 0);
 
-    tracer_main(pi, path, envp);
+    tracer_main(pi, path, envp, &ctx);
 }
 
 void
@@ -530,7 +531,5 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
-    ctx = malloc(sizeof (CONTEXT));
-    context_init(ctx);
     trace(pid, *av, envp);
 }
