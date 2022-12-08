@@ -391,7 +391,7 @@ handle_syscall_exit(CONTEXT *ctx, PROCESS_INFO *pi,
 }
 
 static void
-tracer_main(PROCESS_INFO *pi, char *path, char **envp, CONTEXT *ctx)
+tracer_main(CONTEXT *ctx, PROCESS_INFO *pi, char *path, char **envp)
 {
     waitpid(pi->pid, NULL, 0);
 
