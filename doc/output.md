@@ -18,10 +18,14 @@ The special types and predicates used are listed below:
 - end: timestamp
 - env: environment entry, in the form of "VAR=value"
 
+
+
 #### File
 - name: the file name
 - size: the file size, in bytes
 - hash: a hexadecimal string of a unique, git-compatible, hash of the content of the file
+- abspath: the file's absolute path
+
 
 
 ### Relationships
@@ -37,6 +41,15 @@ The special types and predicates used are listed below:
 #### writes
 - Domain: Process
 - Range: File
+
+#### creates
+- Domain: Process
+- Range: Process
+
+#### executable
+- Domain: Process
+- Range: File
+
 
 
 ## Example
