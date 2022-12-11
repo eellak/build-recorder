@@ -56,6 +56,7 @@ init(void)
 {
     pinfo_size = DEFAULT_PINFO_SIZE;
     pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
+    pids = malloc(pinfo_size * sizeof (int));
     numpinfo = -1;
 
     finfo_size = DEFAULT_FINFO_SIZE;
@@ -69,6 +70,7 @@ next_pinfo(pid_t pid)
     if (numpinfo == pinfo_size - 1) {
 	pinfo_size *= 2;
 	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
+	pids = reallocarray(pids, pinfo_size, sizeof (int));
 	if (pinfo == NULL)
 	    error(EXIT_FAILURE, errno, "reallocating process info array");
     }
