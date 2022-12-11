@@ -56,7 +56,7 @@ init(void)
 {
     pinfo_size = DEFAULT_PINFO_SIZE;
     pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
-    pids = calloc(pinfo_size, sizeof (int));
+    pids = malloc(pinfo_size * sizeof (int));
     numpinfo = -1;
 
     finfo_size = DEFAULT_FINFO_SIZE;
@@ -67,21 +67,7 @@ init(void)
 PROCESS_INFO *
 next_pinfo(pid_t pid)
 {
-    // Search for empty entries to reuse
-    int i = numpinfo;
-
-    while (i >= 0 && pids[i]) {
-	--i;
-    }
-
-    if (i >= 0) {
-	pids[i] = pid;
-	return pinfo + i;
-    }
-
     if (numpinfo == pinfo_size - 1) {
-	int prev_size = pinfo_size;
-
 	pinfo_size *= 2;
 	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
 	if (pinfo == NULL)
@@ -90,9 +76,6 @@ next_pinfo(pid_t pid)
 	pids = reallocarray(pids, pinfo_size, sizeof (int));
 	if (pids == NULL)
 	    error(EXIT_FAILURE, errno, "reallocating pids array");
-	for (i = prev_size; i < pinfo_size; ++i) {
-	    pids[i] = 0;
-	}
     }
 
     pids[numpinfo + 1] = pid;
@@ -627,8 +610,7 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 	    if (ptrace(PTRACE_SYSCALL, pid, NULL, restart_sig) < 0) {
 		error(EXIT_FAILURE, errno, "failed restarting process");
 	    }
-	} else if (WIFEXITED(status))  // child process exited
-	{
+	} else if (WIFEXITED(status)) {	// child process exited 
 	    --running;
 
 	    process_state = find_pinfo(pid);
@@ -636,8 +618,17 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 		error(EXIT_FAILURE, 0, "find_pinfo on WIFEXITED");
 	    }
 
-	    pids[process_state - pinfo] = 0;	// empty the entry
 	    record_process_end(process_state->outname);
+
+	    int i = process_state - pinfo;
+
+	    for (int i = process_state - pinfo; i < numpinfo; ++i) {
+		pinfo[i] = pinfo[i + 1];
+	    }
+	    for (int i = process_state - pinfo; i < numpinfo; ++i) {
+		pids[i] = pids[i + 1];
+	    }
+	    --numpinfo;
 	}
     }
 }
