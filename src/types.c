@@ -95,10 +95,20 @@ context_find_finfo(const CONTEXT *self, char *abspath, char *hash)
 {
     int i = self->numfinfo;
 
-    while (i >= 0 && !(!strcmp(abspath, self->finfo[i].abspath)
-		       && (!(self->finfo[i].was_hash_printed)
-			   || (hash == NULL && self->finfo[i].hash == NULL)
-			   || !strcmp(hash, self->finfo[i].hash)))) {
+    while (i >= 0) {
+	if (self->finfo[i].was_hash_printed == 0) {
+	    // We don't want an
+	    // incomplete entry.
+	    --i;
+	    continue;
+	}
+
+	if (!strcmp(abspath, self->finfo[i].abspath)
+	    && ((hash == NULL && self->finfo[i].hash == NULL)
+		|| !strcmp(hash, self->finfo[i].hash))) {
+	    break;
+	}
+
 	--i;
     }
 

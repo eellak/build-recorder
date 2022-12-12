@@ -507,7 +507,7 @@ trace(pid_t pid, char *path, char **envp)
 
     pinfo_new(pi, ctx.numpinfo, pid, 0);
 
-    tracer_main(pi, path, envp, &ctx);
+    tracer_main(&ctx, pi, path, envp);
 }
 
 void
