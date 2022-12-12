@@ -93,6 +93,10 @@ hash_file_contents(char *name, size_t sz)
 
     close(fd);
 
+    if (munmap(buf, sz) < 0) {
+	error(EXIT_FAILURE, errno, "unmapping `%s'", name);
+    }
+
     return hash;
 }
 
