@@ -620,6 +620,9 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 
 	    record_process_end(process_state->outname);
 
+	    free(process_state->cmdline);
+	    free(process_state->finfo);
+
 	    int i = process_state - pinfo;
 
 	    for (int i = process_state - pinfo; i < numpinfo; ++i) {
