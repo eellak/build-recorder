@@ -98,7 +98,9 @@ next_finfo(void)
 void
 pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
 {
-    sprintf(self->outname, ":p%d", numpinfo);
+    static int pcount = 0;
+
+    sprintf(self->outname, ":p%d", pcount++);
     self->finfo_size = DEFAULT_FINFO_SIZE;
     self->finfo = calloc(self->finfo_size, sizeof (FILE_INFO));
     self->ignore_one_sigstop = ignore_one_sigstop;
@@ -139,7 +141,7 @@ find_finfo(char *abspath, char *hash)
 
     while (i >= 0) {
 	if (finfo[i].was_hash_printed == 0) {	// We don't want an
-						// incomplete entry.
+	    // incomplete entry.
 	    --i;
 	    continue;
 	}
