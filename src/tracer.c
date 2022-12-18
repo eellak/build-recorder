@@ -92,20 +92,21 @@ pinfo_new(PROCESS_INFO *self, pid_t pid, char ignore_one_sigstop)
     sprintf(self->outname, ":p%d", numpinfo);
     self->pid = pid;
     self->finfo_size = DEFAULT_FINFO_SIZE;
-    self->finfo = calloc(self->finfo_size, sizeof (FILE_INFO));
+    self->numfinfo = -1;
+    self->finfo = malloc(self->finfo_size * sizeof (FILE_INFO));
+    self->fds = malloc(self->finfo_size * sizeof (int));
     self->ignore_one_sigstop = ignore_one_sigstop;
 }
 
 void
 finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
 {
-    self->was_hash_printed = 0;
+    static int fcount = 0;
+
     self->path = path;
     self->abspath = abspath;
     self->hash = hash;
-    sprintf(self->outname, ":f%d", numfinfo);
-
-    record_file(self->outname, path, abspath);
+    sprintf(self->outname, ":f%d", fcount++);
 }
 
 PROCESS_INFO *
@@ -130,12 +131,6 @@ find_finfo(char *abspath, char *hash)
     int i = numfinfo;
 
     while (i >= 0) {
-	if (finfo[i].was_hash_printed == 0) {	// We don't want an
-						// incomplete entry.
-	    --i;
-	    continue;
-	}
-
 	if (!strcmp(abspath, finfo[i].abspath)
 	    && ((hash == NULL && finfo[i].hash == NULL)
 		|| !strcmp(hash, finfo[i].hash))) {
@@ -152,28 +147,37 @@ find_finfo(char *abspath, char *hash)
     return finfo + i;
 }
 
-int *
-finfo_at(PROCESS_INFO *pi, int index)
+FILE_INFO *
+pinfo_find_finfo(PROCESS_INFO *self, int fd)
 {
-    if (index >= pi->finfo_size) {
-	int prev_size = pi->finfo_size;
+    int i = self->numfinfo;
 
-	do {
-	    pi->finfo_size *= 2;
-	} while (index >= pi->finfo_size);
-
-	pi->finfo = reallocarray(pi->finfo, pi->finfo_size, sizeof (FILE_INFO));
-	if (pi->finfo == NULL) {
-	    error(EXIT_FAILURE, errno,
-		  "reallocating file info array in process %d", pi->pid);
-	}
-
-	for (int i = prev_size; i < pi->finfo_size; ++i) {
-	    pi->finfo[i] = -1;
-	}
+    while (i >= 0 && self->fds[i] != fd) {
+	--i;
     }
 
-    return pi->finfo + index;
+    if (i < 0) {
+	return NULL;
+    }
+
+    return self->finfo + i;
+}
+
+FILE_INFO *
+pinfo_next_finfo(PROCESS_INFO *self, int fd)
+{
+    if (self->numfinfo == self->finfo_size - 1) {
+	self->finfo_size *= 2;
+	self->finfo =
+		reallocarray(self->finfo, self->finfo_size, sizeof (FILE_INFO));
+	self->fds =
+		reallocarray(self->fds, self->finfo_size, sizeof (FILE_INFO));
+	if (self->finfo == NULL)
+	    error(EXIT_FAILURE, errno, "reallocating file info array");
+    }
+
+    self->fds[self->numfinfo + 1] = fd;
+    return self->finfo + (++self->numfinfo);
 }
 
 char *
@@ -256,30 +260,29 @@ handle_open(PROCESS_INFO *pi, int fd, int dirfd, void *path, int purpose)
     if (abspath == NULL)
 	error(EXIT_FAILURE, errno, "on handle_open absolutepath");
 
-    char *hash = NULL;
-
     FILE_INFO *f = NULL;
 
     if ((purpose & O_ACCMODE) == O_RDONLY) {
-	hash = get_file_hash(abspath);
-	f = find_finfo(abspath, hash);
-    }
+	char *hash = get_file_hash(abspath);
 
-    if (!f) {
-	f = next_finfo();
-	finfo_new(f, path, abspath, hash);
+	f = find_finfo(abspath, hash);
+	if (!f) {
+	    f = next_finfo();
+	    finfo_new(f, path, abspath, hash);
+	    record_file(f->outname, path, abspath);
+	    record_hash(f->outname, hash);
+	} else {
+	    free(path);
+	    free(abspath);
+	    free(hash);
+	}
     } else {
-	free(path);
-	free(abspath);
-	free(hash);
+	f = pinfo_next_finfo(pi, fd);
+	finfo_new(f, path, abspath, NULL);
+	record_file(f->outname, path, abspath);
     }
-    *finfo_at(pi, fd) = f - finfo;
 
     record_fileuse(pi->outname, f->outname, purpose);
-    if (!f->was_hash_printed && (purpose & O_ACCMODE) == O_RDONLY) {
-	f->was_hash_printed = 1;
-	record_hash(f->outname, hash);
-    }
 }
 
 static void
@@ -309,8 +312,8 @@ handle_execve(PROCESS_INFO *pi, int dirfd, char *path)
 	f = next_finfo();
 
 	finfo_new(f, path, abspath, hash);
+	record_file(f->outname, path, abspath);
 	record_hash(f->outname, f->hash);
-	f->was_hash_printed = 1;
     } else {
 	free(abspath);
 	free(hash);
@@ -331,6 +334,8 @@ handle_rename_entry(PROCESS_INFO *pi, int olddirfd, char *oldpath)
     if (!f) {
 	f = next_finfo();
 	finfo_new(f, oldpath, abspath, hash);
+	record_file(f->outname, oldpath, abspath);
+	record_hash(f->outname, f->hash);
     } else {
 	free(oldpath);
 	free(abspath);
@@ -352,6 +357,8 @@ handle_rename_exit(PROCESS_INFO *pi, int newdirfd, char *newpath)
     FILE_INFO *to = next_finfo();
 
     finfo_new(to, newpath, abspath, from->hash);
+    record_file(to->outname, newpath, abspath);
+    record_hash(to->outname, to->hash);
 
     record_rename(pi->outname, from->outname, to->outname);
 }
@@ -459,16 +466,25 @@ handle_syscall_exit(PROCESS_INFO *pi, const struct ptrace_syscall_info *entry,
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    if (pi->finfo[fd] != -1) {
-		f = finfo + pi->finfo[fd];
+	    f = pinfo_find_finfo(pi, fd);
 
-		if (!f->was_hash_printed) {
-		    f->hash = get_file_hash(f->abspath);
-		    record_hash(f->outname, f->hash);
-		    f->was_hash_printed = 1;
+	    if (f != NULL) {
+		f->hash = get_file_hash(f->abspath);
+		record_hash(f->outname, f->hash);
+
+		// Add it to global cache list
+		*next_finfo() = *f;
+
+		// Remove the file from the process' list
+		for (int i = f - pi->finfo; i < pi->numfinfo; ++i) {
+		    pi->finfo[i] = pi->finfo[i + 1];
 		}
 
-		pi->finfo[fd] = -1;
+		for (int i = f - pi->finfo; i < pi->numfinfo; ++i) {
+		    pi->fds[i] = pi->fds[i + 1];
+		}
+
+		--pi->numfinfo;
 	    }
 	    break;
 	case SYS_execve:
