@@ -39,7 +39,6 @@ typedef struct {
  */
 typedef struct {
     char outname[16];
-    pid_t pid;
     char *cmd_line;
     int *fds;
     FILE_INFO *finfo;
