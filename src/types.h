@@ -24,7 +24,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
  * Not all info is added at the same time.
  */
 typedef struct {
-    char was_hash_printed;
     char *path;
     char *abspath;
     char *hash;
@@ -34,8 +33,7 @@ typedef struct {
 /*
  * For each (sub-)process we keep its pid,
  * the command line (including all the arguments)
- * the number of files recorded,
- * the actual information on the files,
+ * the list of files that are currently open for writing,
  * and, while it's running, its current syscall
  * stop info struct.
  */
@@ -43,7 +41,9 @@ typedef struct {
     char outname[16];
     pid_t pid;
     char *cmd_line;
-    int *finfo;
+    int *fds;
+    FILE_INFO *finfo;
+    int numfinfo;
     int finfo_size;
     struct ptrace_syscall_info state;
     void *entry_info;
