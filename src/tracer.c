@@ -649,6 +649,7 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 
 	    free(process_state->cmd_line);
 	    free(process_state->finfo);
+	    free(process_state->fds);
 
 	    int i = process_state - pinfo;
 
