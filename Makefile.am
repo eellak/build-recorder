@@ -11,5 +11,6 @@ build_recorder_SOURCES = \
     src/tracer.c \
     src/hash.c \
     src/record.c \
+    src/hashmap.c \
     src/main.c
 

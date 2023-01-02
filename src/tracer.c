@@ -24,12 +24,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/wait.h>
 #include	<linux/limits.h>
 
-#include	"types.h"
+#include	"hashmap.h"
 #include	"hash.h"
 #include	"record.h"
 
 /*
- * variables for the list of processes,
+ * Variables for the list of processes,
  * its size and the array size. As well as
  * a list of their respective pids with the
  * same size and array size.
@@ -40,9 +40,12 @@ PROCESS_INFO *pinfo;
 int numpinfo;
 int pinfo_size;
 
-FILE_INFO *finfo;
-int numfinfo;
-int finfo_size;
+/*
+ * A hashtable that maps keys to values.
+ * Keys being the string concatenation of abspath and hash(if not null, in case of folders),
+ * Values being a FILE_INFO structure.
+ */
+hashmap finfo;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
@@ -59,9 +62,7 @@ init(void)
     pids = malloc(pinfo_size * sizeof (int));
     numpinfo = -1;
 
-    finfo_size = DEFAULT_FINFO_SIZE;
-    finfo = calloc(finfo_size, sizeof (FILE_INFO));
-    numfinfo = -1;
+    hashmap_new(&finfo);
 }
 
 PROCESS_INFO *
@@ -276,9 +277,8 @@ handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
     if ((purpose & O_ACCMODE) == O_RDONLY) {
 	char *hash = get_file_hash(abspath);
 
-	f = find_finfo(abspath, hash);
-	if (!f) {
-	    f = next_finfo();
+	f = hashmap_insert(&finfo, hash);
+	if (!*(char *) f) {
 	    finfo_new(f, path, abspath, hash);
 	    record_file(f->outname, path, abspath);
 	    record_hash(f->outname, hash);
