@@ -24,8 +24,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include <openssl/sha.h>	       // SHA_CTX, SHA1_Init, SHA1_Update,
 				       // SHA1_Final
-#define SHA1_OUTPUT_LEN 20
-#define SHA1_HEXBUF_LEN (2 * SHA1_OUTPUT_LEN + 1)
 
 #define	ZERO_FILE_HASH	"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
 

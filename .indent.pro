@@ -86,6 +86,10 @@
 
 /* project-specific types */
 -TFILE_INFO
+-TFILE_WRITE
 -TPROCESS_INFO
--Thashtable
+-Thashmap
+-Tkey_type
+-Tvalue_type
+
 

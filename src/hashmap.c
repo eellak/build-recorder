@@ -26,10 +26,10 @@ hash_str(char *str)
 }
 
 static void
- hashmap_reallocate(hashmap * self);
+ hashmap_reallocate(hashmap *self);
 
 static void
-hashmap_new_impl(hashmap * self, int capacity)
+hashmap_new_impl(hashmap *self, int capacity)
 {
     self->keys = calloc(capacity, sizeof (key_type));
     self->values = calloc(capacity, sizeof (value_type));
@@ -42,13 +42,13 @@ hashmap_new_impl(hashmap * self, int capacity)
 }
 
 void
-hashmap_new(hashmap * self)
+hashmap_new(hashmap *self)
 {
     hashmap_new_impl(self, DEFAULT_CAPACITY);
 }
 
 value_type *
-hashmap_insert(hashmap * self, key_type key)
+hashmap_insert(hashmap *self, key_type key)
 {
     if (self->size == self->capacity) {
 	hashmap_reallocate(self);
@@ -68,23 +68,23 @@ hashmap_insert(hashmap * self, key_type key)
 	}
     }
 
-    if (!self->keys[pos])
+    if (!self->keys[pos]) {
 	self->keys[pos] = key;
-
-    ++self->size;
+	++self->size;
+    }
 
     return self->values + pos;
 }
 
 static void
-hashmap_free(hashmap * self)
+hashmap_free(hashmap *self)
 {
     free(self->keys);
     free(self->values);
 }
 
 static void
-hashmap_reallocate(hashmap * self)
+hashmap_reallocate(hashmap *self)
 {
     hashmap hm;
 
