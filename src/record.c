@@ -17,6 +17,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/types.h>
 #include	<sys/stat.h>
 #include	<fcntl.h>
+#include	<error.h>
+#include	<errno.h>
 
 FILE *fout;
 
@@ -60,7 +62,7 @@ get_cmdline(pid_t pid)
     int fd = open(cmd_fname, O_RDONLY);
 
     if (fd < 0) {
-	return NULL;
+	error(EXIT_FAILURE, errno, "on get_cmdline open");
     }
 #define	CMD_LINE_SIZE	1023
     char data[CMD_LINE_SIZE + 1];
@@ -69,6 +71,8 @@ get_cmdline(pid_t pid)
     close(fd);
 
     if (n < 0) {
+	error(EXIT_FAILURE, errno, "on get_cmdline read");
+    } else if (n == 0) {
 	return NULL;
     }
 
@@ -92,7 +96,7 @@ get_cmdline(pid_t pid)
     char *ret = malloc(sz);
 
     if (ret == NULL) {
-	return NULL;
+	error(EXIT_FAILURE, errno, "on get_cmdline malloc");
     }
 
     *ret = '\0';
