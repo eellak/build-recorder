@@ -204,8 +204,9 @@ get_str_from_process(pid_t pid, void *addr)
 
     do {
 	data.lval =
-		ptrace(PTRACE_PEEKDATA, pid, addr + i * sizeof (long), NULL);
-	for (int j = 0; j < sizeof (long); j++) {
+		ptrace(PTRACE_PEEKDATA, pid, (char *) addr + i * sizeof (long),
+		       NULL);
+	for (unsigned j = 0; j < sizeof (long); j++) {
 	    *dest++ = data.cval[j];
 	    if (data.cval[j] == 0)
 		break;
@@ -650,8 +651,6 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 	    free(process_state->cmd_line);
 	    free(process_state->finfo);
 	    free(process_state->fds);
-
-	    int i = process_state - pinfo;
 
 	    for (int i = process_state - pinfo; i < numpinfo; ++i) {
 		pinfo[i] = pinfo[i + 1];
