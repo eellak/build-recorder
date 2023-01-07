@@ -16,19 +16,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include        <linux/ptrace.h>
 
 /*
- * For each file, we keep its name/path
- * (the argument to the open(2) call that opened it,
- * whether it was opened for reading or for writing
- * (re-using the O_ flags),
- * and a hash of the contents.
- * Not all info is added at the same time.
+ * For each file, we keep its outname. 
  */
 typedef struct {
-    char *path;
-    char *abspath;
-    char *hash;
     char outname[16];
 } FILE_INFO;
+
+/*
+ * When a file is open for writing, we need to
+ * also store its abspath inside the process' list
+ * so that we can compute its hash when it's closed.
+ */
+typedef struct {
+    FILE_INFO f;
+    char *abspath;
+} FILE_WRITE;
 
 /*
  * For each (sub-)process we keep its pid,
@@ -41,7 +43,7 @@ typedef struct {
     char outname[16];
     char *cmd_line;
     int *fds;
-    FILE_INFO *finfo;
+    FILE_WRITE *finfo;
     int numfinfo;
     int finfo_size;
     struct ptrace_syscall_info state;
