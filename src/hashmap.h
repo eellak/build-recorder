@@ -18,12 +18,6 @@ typedef struct {
     int capacity;
 } hashmap;
 
-typedef struct {
-    key_type *key;
-    value_type *value;
-    char was_inserted;
-} hashmap_insertion;
-
 void hashmap_new(hashmap *self);
 
 value_type *hashmap_insert(hashmap *self, key_type key);
