@@ -16,12 +16,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include        <linux/ptrace.h>
 
 /*
- * For each file, we keep its name/path
- * (the argument to the open(2) call that opened it,
- * whether it was opened for reading or for writing
- * (re-using the O_ flags),
+ * For each file, we keep its absolute path
  * and a hash of the contents.
- * Not all info is added at the same time.
  */
 typedef struct {
     char *abspath;
