@@ -517,7 +517,6 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 	    newpath = get_str_from_process(pid, (void *) entry->entry.args[1]);
 
 	    handle_rename_exit(pid, pi, AT_FDCWD, newpath);
-	    free(newpath);
 	    break;
 	case SYS_renameat:
 	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
@@ -526,7 +525,6 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 	    newpath = get_str_from_process(pid, (void *) entry->entry.args[3]);
 
 	    handle_rename_exit(pid, pi, newdirfd, newpath);
-	    free(newpath);
 	    break;
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd,
