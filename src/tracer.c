@@ -329,7 +329,6 @@ handle_execve(pid_t pid, PROCESS_INFO *pi, int dirfd, char *path)
     } else {
 	free(abspath);
 	free(hash);
-	free(path);
     }
 
     record_exec(pi->outname, f->outname);
