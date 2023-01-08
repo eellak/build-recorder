@@ -24,12 +24,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/wait.h>
 #include	<linux/limits.h>
 
-#include	"hashmap.h"
+#include	"types.h"
 #include	"hash.h"
 #include	"record.h"
 
 /*
- * Variables for the list of processes,
+ * variables for the list of processes,
  * its size and the array size. As well as
  * a list of their respective pids with the
  * same size and array size.
@@ -40,12 +40,9 @@ PROCESS_INFO *pinfo;
 int numpinfo;
 int pinfo_size;
 
-/*
- * A hashtable that maps keys to values.
- * Keys being the string concatenation of abspath and hash(if not null, in case of folders),
- * Values being a FILE_INFO structure.
- */
-hashmap finfo;
+FILE_INFO *finfo;
+int numfinfo;
+int finfo_size;
 
 #define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
@@ -62,7 +59,9 @@ init(void)
     pids = malloc(pinfo_size * sizeof (int));
     numpinfo = -1;
 
-    hashmap_new(&finfo);
+    finfo_size = DEFAULT_FINFO_SIZE;
+    finfo = calloc(finfo_size, sizeof (FILE_INFO));
+    numfinfo = -1;
 }
 
 PROCESS_INFO *
@@ -83,6 +82,19 @@ next_pinfo(pid_t pid)
     return pinfo + (++numpinfo);
 }
 
+FILE_INFO *
+next_finfo(void)
+{
+    if (numfinfo == finfo_size - 1) {
+	finfo_size *= 2;
+	finfo = reallocarray(finfo, finfo_size, sizeof (FILE_INFO));
+	if (finfo == NULL)
+	    error(EXIT_FAILURE, errno, "reallocating file info array");
+    }
+
+    return finfo + (++numfinfo);
+}
+
 void
 pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
 {
@@ -97,10 +109,13 @@ pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
 }
 
 void
-finfo_new(FILE_INFO *self)
+finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
 {
     static int fcount = 0;
 
+    self->path = path;
+    self->abspath = abspath;
+    self->hash = hash;
     sprintf(self->outname, ":f%d", fcount++);
 }
 
@@ -120,7 +135,29 @@ find_pinfo(pid_t pid)
     return pinfo + i;
 }
 
-FILE_WRITE *
+FILE_INFO *
+find_finfo(char *abspath, char *hash)
+{
+    int i = numfinfo;
+
+    while (i >= 0) {
+	if (!strcmp(abspath, finfo[i].abspath)
+	    && ((hash == NULL && finfo[i].hash == NULL)
+		|| !strcmp(hash, finfo[i].hash))) {
+	    break;
+	}
+
+	--i;
+    }
+
+    if (i < 0) {
+	return NULL;
+    }
+
+    return finfo + i;
+}
+
+FILE_INFO *
 pinfo_find_finfo(PROCESS_INFO *self, int fd)
 {
     int i = self->numfinfo;
@@ -136,15 +173,15 @@ pinfo_find_finfo(PROCESS_INFO *self, int fd)
     return self->finfo + i;
 }
 
-FILE_WRITE *
+FILE_INFO *
 pinfo_next_finfo(PROCESS_INFO *self, int fd)
 {
     if (self->numfinfo == self->finfo_size - 1) {
 	self->finfo_size *= 2;
 	self->finfo =
-		reallocarray(self->finfo, self->finfo_size,
-			     sizeof (FILE_WRITE));
-	self->fds = reallocarray(self->fds, self->finfo_size, sizeof (int));
+		reallocarray(self->finfo, self->finfo_size, sizeof (FILE_INFO));
+	self->fds =
+		reallocarray(self->fds, self->finfo_size, sizeof (FILE_INFO));
 	if (self->finfo == NULL)
 	    error(EXIT_FAILURE, errno, "reallocating file info array");
     }
@@ -225,19 +262,6 @@ find_in_path(char *path)
     return ret;
 }
 
-static char *
-craft_key(const char *abspath, const char *hash)
-{
-    if (!hash)			       /* If it's a folder */
-	return strdup(abspath);
-
-    char *key = (char *) malloc(strlen(abspath) + SHA1_HEXBUF_LEN);
-
-    strcpy(key, hash);
-    strcat(key, abspath);
-    return key;
-}
-
 static void
 handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
 	    int purpose)
@@ -252,32 +276,25 @@ handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
 
     if ((purpose & O_ACCMODE) == O_RDONLY) {
 	char *hash = get_file_hash(abspath);
-	char *key = craft_key(abspath, hash);
 
-	f = hashmap_insert(&finfo, key);
-	if (!*(char *) f) {
-	    finfo_new(f);
+	f = find_finfo(abspath, hash);
+	if (!f) {
+	    f = next_finfo();
+	    finfo_new(f, path, abspath, hash);
 	    record_file(f->outname, path, abspath);
 	    record_hash(f->outname, hash);
 	} else {
-	    free(key);
+	    free(path);
+	    free(abspath);
+	    free(hash);
 	}
-
-	free(abspath);
-	free(hash);
     } else {
-	FILE_WRITE *fw = pinfo_next_finfo(pi, fd);
-
-	f = &(fw->f);
-	fw->abspath = abspath;
-
-	finfo_new(f);
+	f = pinfo_next_finfo(pi, fd);
+	finfo_new(f, path, abspath, NULL);
 	record_file(f->outname, path, abspath);
     }
 
     record_fileuse(pi->outname, f->outname, purpose);
-
-    free(path);
 }
 
 static void
@@ -300,22 +317,22 @@ handle_execve(pid_t pid, PROCESS_INFO *pi, int dirfd, char *path)
     }
 
     char *hash = get_file_hash(abspath);
-    char *key = craft_key(abspath, hash);
 
-    FILE_INFO *f = hashmap_insert(&finfo, key);
+    FILE_INFO *f;
 
-    if (!*(char *) f) {
-	finfo_new(f);
+    if (!(f = find_finfo(abspath, hash))) {
+	f = next_finfo();
+
+	finfo_new(f, path, abspath, hash);
 	record_file(f->outname, path, abspath);
-	record_hash(f->outname, hash);
+	record_hash(f->outname, f->hash);
     } else {
-	free(key);
+	free(abspath);
+	free(hash);
+	free(path);
     }
 
     record_exec(pi->outname, f->outname);
-
-    free(abspath);
-    free(hash);
 }
 
 static void
@@ -323,53 +340,39 @@ handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
     char *abspath = absolutepath(pid, olddirfd, oldpath);
     char *hash = get_file_hash(abspath);
-    char *key = craft_key(abspath, hash);
-    char *dup;			  /* Duplicate the key so we can pass it to
-				     rename_exit */
 
-    FILE_INFO *f = hashmap_insert(&finfo, key);
+    FILE_INFO *f = find_finfo(abspath, hash);
 
-    if (!*(char *) f) {
-	finfo_new(f);
+    if (!f) {
+	f = next_finfo();
+	finfo_new(f, oldpath, abspath, hash);
 	record_file(f->outname, oldpath, abspath);
-	record_hash(f->outname, hash);
-	dup = strdup(key);
+	record_hash(f->outname, f->hash);
     } else {
-	dup = key;		       /* We can reuse that */
+	free(oldpath);
+	free(abspath);
+	free(hash);
     }
 
-    pi->entry_info = (void *) dup;
-
-    free(oldpath);
-    free(abspath);
-    free(hash);
+    pi->entry_info = (void *) (f - finfo);
+    if (pi->entry_info == NULL)
+	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
 }
 
 static void
 handle_rename_exit(pid_t pid, PROCESS_INFO *pi, int newdirfd, char *newpath)
 {
-    char *fromkey = (char *) pi->entry_info;
-    FILE_INFO *from = hashmap_insert(&finfo, fromkey);
-
-    /* The first SHA1_HEXBUF_LEN(excluding the null byte) bytes are the hash */
-    fromkey[SHA1_HEXBUF_LEN - 1] = 0;
-    char *hash = fromkey;	  /* readability */
+    FILE_INFO *from = finfo + (ptrdiff_t) pi->entry_info;
 
     char *abspath = absolutepath(pid, newdirfd, newpath);
-    char *tokey = craft_key(abspath, hash);
 
-    FILE_INFO *to = hashmap_insert(&finfo, tokey);
+    FILE_INFO *to = next_finfo();
 
-    finfo_new(to);
+    finfo_new(to, newpath, abspath, from->hash);
     record_file(to->outname, newpath, abspath);
-    record_hash(to->outname, hash);
+    record_hash(to->outname, to->hash);
 
     record_rename(pi->outname, from->outname, to->outname);
-
-    free(newpath);
-    free(abspath);
-    /* This also frees fromkey, since they point to the same buffer */
-    free(hash);
 }
 
 static void
@@ -437,7 +440,6 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
     int flags;
     int dirfd;
     FILE_INFO *f;
-    FILE_WRITE *fw;
     int newdirfd;
     char *newpath;
 
@@ -471,23 +473,21 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
 
-	    fw = pinfo_find_finfo(pi, fd);
-	    f = &(fw->f);
+	    f = pinfo_find_finfo(pi, fd);
 
-	    if (fw != NULL) {
-		char *hash = get_file_hash(fw->abspath);
+	    if (f != NULL) {
+		f->hash = get_file_hash(f->abspath);
+		record_hash(f->outname, f->hash);
 
-		record_hash(f->outname, hash);
-
-		// Add it to global set
-		*hashmap_insert(&finfo, craft_key(fw->abspath, hash)) = *f;
+		// Add it to global cache list
+		*next_finfo() = *f;
 
 		// Remove the file from the process' list
-		for (int i = fw - pi->finfo; i < pi->numfinfo; ++i) {
+		for (int i = f - pi->finfo; i < pi->numfinfo; ++i) {
 		    pi->finfo[i] = pi->finfo[i + 1];
 		}
 
-		for (int i = fw - pi->finfo; i < pi->numfinfo; ++i) {
+		for (int i = f - pi->finfo; i < pi->numfinfo; ++i) {
 		    pi->fds[i] = pi->fds[i + 1];
 		}
 
@@ -500,7 +500,6 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 	    path = pi->entry_info;
 
 	    handle_execve(pid, pi, AT_FDCWD, path);
-	    free(path);
 	    break;
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
@@ -510,7 +509,6 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 	    path = pi->entry_info;
 
 	    handle_execve(pid, pi, dirfd, path);
-	    free(path);
 	    break;
 	case SYS_rename:
 	    // int rename(const char *oldpath, const char *newpath);
