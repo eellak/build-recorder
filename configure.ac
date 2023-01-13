@@ -72,6 +72,10 @@ AC_CHECK_DECL([SYS_open],, AC_MSG_ERROR([cannot find SYS_open]), [#include <sys/
 AC_CHECK_DECL([SYS_creat],, AC_MSG_ERROR([cannot find SYS_creat]), [#include <sys/syscall.h>])
 AC_CHECK_DECL([SYS_openat],, AC_MSG_ERROR([cannot find SYS_openat]), [#include <sys/syscall.h>])
 AC_CHECK_DECL([SYS_close],, AC_MSG_ERROR([cannot find SYS_close]), [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_rename],, AC_MSG_ERROR([cannot find SYS_rename]), [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_fork],, AC_MSG_ERROR([cannot find SYS_fork]), [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_vfork],, AC_MSG_ERROR([cannot find SYS_vfork]), [#include <sys/syscall.h>])
+
 
 AC_CHECK_DECL([MADV_SEQUENTIAL],, AC_MSG_ERROR([cannot find MADV_SEQUENTIAL]), [#include <sys/mman.h>])
 
