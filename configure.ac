@@ -76,7 +76,6 @@ AC_CHECK_DECL([SYS_rename],, AC_MSG_ERROR([cannot find SYS_rename]), [#include <
 AC_CHECK_DECL([SYS_fork],, AC_MSG_ERROR([cannot find SYS_fork]), [#include <sys/syscall.h>])
 AC_CHECK_DECL([SYS_vfork],, AC_MSG_ERROR([cannot find SYS_vfork]), [#include <sys/syscall.h>])
 
-
 AC_CHECK_DECL([MADV_SEQUENTIAL],, AC_MSG_ERROR([cannot find MADV_SEQUENTIAL]), [#include <sys/mman.h>])
 
 dnl Checks for functions
