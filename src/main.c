@@ -18,19 +18,41 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 void run_and_record_fnames(char **av, char **envp);
 
+#define CLI_USAGE \
+"No command to output\n" \
+"Usage:\n" \
+"\tbuild_recorder -h\n" \
+"\tbuild_recorder COMMAND\n" \
+"\tbuild_recorder -o <file-name> COMMAND\n" \
+"\n" \
+"Flags:\n" \
+"\t-o\tOutput file name. Default: build-recorder.out\n" \
+"\t-h\tPrint this help text and exit.\n" \
+"\n" \
+"Examples:\n\n" \
+"Say we want to run the command 'gcc main.c -o main.o' and want to track " \
+"the various interactions:\n\n" \
+"$ build_recorder gcc main.c -o main.o\n" \
+"or, if the output file needs a specific name:\n" \
+"$ build_recorder -o foo.out gcc main.c -o main.o\n" \
+
 int
 main(int argc, char **argv, char **envp)
 {
     if (argc < 2)
-	error(EX_USAGE, 0, "missing command to record");
+	error(EX_USAGE, 0, CLI_USAGE);
 
     char *output_fname = "build-recorder.out";
 
-    if (!strcmp(argv[1], "-o")) {
+    if(!strcmp(argv[1], "-h")) {
+        // Help Text
+        printf(CLI_USAGE);
+        exit(EXIT_SUCCESS);
+    } else if (!strcmp(argv[1], "-o")) {
 
 	// Usage like `build_recorder -o foo.out`
 	if (argc < 4)
-	    error(EX_USAGE, 0, "missing command to record");
+	    error(EX_USAGE, 0, CLI_USAGE);
 
 	output_fname = argv[2];
 	argv += 3;
