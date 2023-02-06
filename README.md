@@ -11,3 +11,20 @@ The code is licensed under
 GNU Lesser General Public License v2.1 or later
 (`LGPL-2.1-or-later`).
 
+## Development
+
+Requirements: [GNU Autotools](https://en.wikipedia.org/wiki/GNU_Autotools),
+GNU Make, and a C compiler like GCC.
+
+Building:
+```sh
+$ aclocal
+$ autoheader
+$ autoconf
+$ automake --add-missing
+$ autoconf
+$ ./configure
+$ make
+```
+
+NOTE: Can use `autoreconf` as well for building.

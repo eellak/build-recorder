@@ -27,6 +27,8 @@ main(int argc, char **argv, char **envp)
     char *output_fname = "build-recorder.out";
 
     if (!strcmp(argv[1], "-o")) {
+
+	// Usage like `build_recorder -o foo.out`
 	if (argc < 4)
 	    error(EX_USAGE, 0, "missing command to record");
 
