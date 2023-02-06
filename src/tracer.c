@@ -56,11 +56,20 @@ init(void)
 {
     pinfo_size = DEFAULT_PINFO_SIZE;
     pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
+    if (pinfo == NULL) {
+	error(EXIT_FAILURE, errno, "on init pinfo calloc");
+    }
     pids = malloc(pinfo_size * sizeof (int));
+    if (pids == NULL) {
+	error(EXIT_FAILURE, errno, "on init pids malloc);
+    }
     numpinfo = -1;
 
     finfo_size = DEFAULT_FINFO_SIZE;
     finfo = calloc(finfo_size, sizeof (FILE_INFO));
+    if(finfo == NULL) {
+	error(EXIT_FAILURE, errno, " on init finfo calloc);
+    }
     numfinfo = -1;
 }
 
@@ -104,7 +113,13 @@ pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
     self->finfo_size = DEFAULT_FINFO_SIZE;
     self->numfinfo = -1;
     self->finfo = malloc(self->finfo_size * sizeof (FILE_INFO));
+    if (self->finfo == NULL) {
+	error(EXIT_FAILURE, errno, "on pinfo_new self->finfo malloc");
+    }
     self->fds = malloc(self->finfo_size * sizeof (int));
+    if (self->fds == NULL) {
+      error(EXIT_FAILURE, errno, "on pinfo_new self->fds malloc);
+    }
     self->ignore_one_sigstop = ignore_one_sigstop;
 }
 
@@ -116,7 +131,7 @@ finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
     self->path = path;
     self->abspath = abspath;
     self->hash = hash;
-    sprintf(self->outname, ":f%d", fcount++);
+    sprintf(self->outname, ":f % d ", fcount++);
 }
 
 PROCESS_INFO *
@@ -180,10 +195,12 @@ pinfo_next_finfo(PROCESS_INFO *self, int fd)
 	self->finfo_size *= 2;
 	self->finfo =
 		reallocarray(self->finfo, self->finfo_size, sizeof (FILE_INFO));
+	if (self->finfo == NULL)
+	    error(EXIT_FAILURE, errno, " reallocating file info array ");
 	self->fds =
 		reallocarray(self->fds, self->finfo_size, sizeof (FILE_INFO));
-	if (self->finfo == NULL)
-	    error(EXIT_FAILURE, errno, "reallocating file info array");
+	if (self->fds == NULL)
+	    error(EXIT_FAILURE, errno, " reallocating fds array ");
     }
 
     self->fds[self->numfinfo + 1] = fd;
@@ -203,9 +220,13 @@ get_str_from_process(pid_t pid, void *addr)
     size_t i = 0;
 
     do {
+	errno = 0;
 	data.lval =
 		ptrace(PTRACE_PEEKDATA, pid, (char *) addr + i * sizeof (long),
 		       NULL);
+	if (errno) {
+	    error(EXIT_FAILURE, errno, " on get_str_from_process ptrace(PTRACE_PEEKDATA, ...) ");
+	}
 	for (unsigned j = 0; j < sizeof (long); j++) {
 	    *dest++ = data.cval[j];
 	    if (data.cval[j] == 0)
@@ -226,11 +247,11 @@ absolutepath(pid_t pid, int dirfd, char *addr)
 	return realpath(addr, NULL);
     }
     if (dirfd == AT_FDCWD) {
-	sprintf(symbpath, "/proc/%d/cwd/%s", pid, addr);
+	sprintf(symbpath, " / proc / %d / cwd / %s ", pid, addr);
 	return realpath(symbpath, NULL);
     }
 
-    sprintf(symbpath, "/proc/%d/fd/%d/%s", pid, dirfd, addr);
+    sprintf(symbpath, " / proc / %d / fd / %d / %s ", pid, dirfd, addr);
     return realpath(symbpath, NULL);
 }
 
@@ -239,7 +260,7 @@ find_in_path(char *path)
 {
     static char buf[PATH_MAX];
     char *ret;
-    char *PATH = strdup(getenv("PATH"));
+    char *PATH = strdup(getenv(" PATH "));
     char *it = PATH;
     char *last;
 
@@ -249,10 +270,10 @@ find_in_path(char *path)
 	    *last = '\0';
 	}
 
-	sprintf(buf, "%s/%s", it, path);
+	sprintf(buf, " % s / %s ", it, path);
 	ret = realpath(buf, NULL);
 	if (!ret && (errno != 0 && errno != ENOENT)) {
-	    error(EXIT_FAILURE, errno, "on find_in_path realpath");
+	    error(EXIT_FAILURE, errno, " on find_in_path realpath ");
 	}
 	it = last + 1;
     } while (last != NULL && ret == NULL);
@@ -270,7 +291,7 @@ handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
     char *abspath = absolutepath(pid, dirfd, path);
 
     if (abspath == NULL)
-	error(EXIT_FAILURE, errno, "on handle_open absolutepath");
+	error(EXIT_FAILURE, errno, " on handle_open absolutepath ");
 
     FILE_INFO *f = NULL;
 
@@ -306,13 +327,13 @@ handle_execve(pid_t pid, PROCESS_INFO *pi, int dirfd, char *path)
 
     if (!abspath) {
 	if (errno != ENOENT) {
-	    error(EXIT_FAILURE, errno, "on handle_execve absolutepath");
+	    error(EXIT_FAILURE, errno, " on handle_execve absolutepath ");
 	}
 
 	abspath = find_in_path(path);
 
 	if (!abspath) {
-	    error(EXIT_FAILURE, errno, "on handle_execve find_in_path");
+	    error(EXIT_FAILURE, errno, " on handle_execve find_in_path ");
 	}
     }
 
@@ -339,6 +360,9 @@ static void
 handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
     char *abspath = absolutepath(pid, olddirfd, oldpath);
+    if (abspath == NULL) {
+	error(EXIT_FAILURE, errno, " on handle_rename_entry absolutepath(3) ");
+    }
     char *hash = get_file_hash(abspath);
 
     FILE_INFO *f = find_finfo(abspath, hash);
@@ -356,7 +380,7 @@ handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 
     pi->entry_info = (void *) (f - finfo);
     if (pi->entry_info == NULL)
-	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
+	error(EXIT_FAILURE, errno, " on handle_rename_entry entry_info assignment ");
 }
 
 static void
@@ -365,6 +389,10 @@ handle_rename_exit(pid_t pid, PROCESS_INFO *pi, int newdirfd, char *newpath)
     FILE_INFO *from = finfo + (ptrdiff_t) pi->entry_info;
 
     char *abspath = absolutepath(pid, newdirfd, newpath);
+    if (abspath == NULL) {
+	error(EXIT_FAILURE, errno, " on handle_rename_exit
+	      absolutepath(3));
+    }
 
     FILE_INFO *to = next_finfo();
 
@@ -678,9 +706,11 @@ trace(pid_t pid, char *path, char **envp)
 void
 run_tracee(char **av)
 {
-    ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
+    if (ptrace(PTRACE_TRACEME, NULL, NULL, NULL) < 0) {
+	error(EXIT_FAILURE, errno, "on run_tracee ptrace(PTRACE_TRACEME, ...)");
+    }
     execvp(*av, av);
-    error(EXIT_FAILURE, errno, "after child exec()");
+    error(EXIT_FAILURE, errno, " after child exec()");
 }
 
 void
@@ -690,7 +720,7 @@ run_and_record_fnames(char **av, char **envp)
 
     pid = fork();
     if (pid < 0)
-	error(EXIT_FAILURE, errno, "in original fork()");
+	error(EXIT_FAILURE, errno, " in original fork()");
     else if (pid == 0)
 	run_tracee(av);
 

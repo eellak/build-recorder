@@ -26,6 +26,9 @@ void
 record_start(char *fname)
 {
     fout = fopen(fname, "w");
+    if (fout == NULL) {
+	error(EXIT_FAILURE, errno, "on record_start fopen");
+    }
 
     fprintf(fout,
 	    "@prefix b:  <http://example.org/build-recorder#> .\n"
@@ -68,7 +71,9 @@ get_cmdline(pid_t pid)
     char data[CMD_LINE_SIZE + 1];
     ssize_t n = read(fd, data, CMD_LINE_SIZE);
 
-    close(fd);
+    if (close(fd)) {
+	error(EXIT_FAILURE, errno, "on get_cmdline close");
+    }
 
     if (n < 0) {
 	error(EXIT_FAILURE, errno, "on get_cmdline read");

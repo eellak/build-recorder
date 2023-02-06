@@ -91,7 +91,9 @@ hash_file_contents(char *name, size_t sz)
     SHA1_Update(&ctx, buf, sz);
     SHA1_Final(hash, &ctx);
 
-    close(fd);
+    if (close(fd) < 0) {
+	error(EXIT_FAILURE, errno, "on hash close(2)");
+    }
 
     if (munmap(buf, sz) < 0) {
 	error(EXIT_FAILURE, errno, "unmapping `%s'", name);
