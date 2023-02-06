@@ -19,7 +19,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 void run_and_record_fnames(char **av, char **envp);
 
 #define CLI_USAGE \
-"No command to output\n" \
 "Usage:\n" \
 "\t" PACKAGE_TARNAME " -h\n" \
 "\t" PACKAGE_TARNAME " -v\n" \
@@ -41,7 +40,7 @@ int
 main(int argc, char **argv, char **envp)
 {
     if (argc < 2)
-	error(EX_USAGE, 0, CLI_USAGE);
+	error(EX_USAGE, 0, "Missing command to record\n" CLI_USAGE);
 
     char *output_fname = "build-recorder.out";
 
@@ -57,7 +56,7 @@ main(int argc, char **argv, char **envp)
 
 	// Usage like `build_recorder -o foo.out`
 	if (argc < 4)
-	    error(EX_USAGE, 0, CLI_USAGE);
+	    error(EX_USAGE, 0, "Missing command to record\n" CLI_USAGE);
 
 	output_fname = argv[2];
 	argv += 3;
