@@ -21,9 +21,10 @@ void run_and_record_fnames(char **av, char **envp);
 #define CLI_USAGE \
 "No command to output\n" \
 "Usage:\n" \
-"\tbuild_recorder -h\n" \
-"\tbuild_recorder COMMAND\n" \
-"\tbuild_recorder -o <file-name> COMMAND\n" \
+"\t" PACKAGE_TARNAME " -h\n" \
+"\t" PACKAGE_TARNAME " -v\n" \
+"\t" PACKAGE_TARNAME " COMMAND\n" \
+"\t" PACKAGE_TARNAME " -o <file-name> COMMAND\n" \
 "\n" \
 "Flags:\n" \
 "\t-o\tOutput file name. Default: build-recorder.out\n" \
@@ -44,10 +45,14 @@ main(int argc, char **argv, char **envp)
 
     char *output_fname = "build-recorder.out";
 
-    if(!strcmp(argv[1], "-h")) {
-        // Help Text
-        printf(CLI_USAGE);
-        exit(EXIT_SUCCESS);
+    if (!strcmp(argv[1], "-v")) {
+	// Help Text
+	printf("%s: Version %s\n", PACKAGE_NAME, PACKAGE_VERSION);
+	exit(EXIT_SUCCESS);
+    } else if (!strcmp(argv[1], "-h")) {
+	// Help Text
+	printf(CLI_USAGE);
+	exit(EXIT_SUCCESS);
     } else if (!strcmp(argv[1], "-o")) {
 
 	// Usage like `build_recorder -o foo.out`
