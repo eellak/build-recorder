@@ -32,9 +32,9 @@ void run_and_record_fnames(char **av, char **envp);
 "Examples:\n\n" \
 "Say we want to run the command 'gcc main.c -o main.o' and want to track " \
 "the various interactions:\n\n" \
-"$ build_recorder gcc main.c -o main.o\n" \
+"$ " PACKAGE_TARNAME " gcc main.c -o main.o\n" \
 "or, if the output file needs a specific name:\n" \
-"$ build_recorder -o foo.out gcc main.c -o main.o\n" \
+"$ " PACKAGE_TARNAME " -o foo.out gcc main.c -o main.o\n" \
 
 int
 main(int argc, char **argv, char **envp)
