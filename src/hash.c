@@ -31,6 +31,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	"hash.h"
 
+/**
+ * @brief Convert a SHA256 hash value to a string.
+ *
+ * @param h 256-bit hash value
+ * @return char* Hash string
+ */
 static char *
 hash_to_str(uint8_t *h)
 {
@@ -51,25 +57,32 @@ hash_to_str(uint8_t *h)
     return hash;
 }
 
+/**
+ * @brief Hash the file contents using SHA256.
+ *
+ * @param fpath Path-name of file
+ * @param sz File size in bytes
+ * @return uint8_t* 256-bit hash value
+ */
 static uint8_t *
-hash_file_contents(char *name, size_t sz)
+hash_file_contents(char *fpath, size_t sz)
 {
-    int fd = open(name, O_RDONLY);
+    int fd = open(fpath, O_RDONLY);
 
     if (fd < 0) {
-	error(0, errno, "open `%s'", name);
+	error(0, errno, "open `%s'", fpath);
 	return NULL;
     }
     char *buf = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
 
     if (buf == MAP_FAILED) {
-	error(0, errno, "mmaping `%s'", name);
+	error(0, errno, "mmaping `%s'", fpath);
 	return NULL;
     }
     int ret = madvise(buf, sz, MADV_SEQUENTIAL);
 
     if (ret) {
-	error(0, errno, "madvise `%s'", name);
+	error(0, errno, "madvise `%s'", fpath);
     }
 
     char pre[32];
@@ -82,7 +95,7 @@ hash_file_contents(char *name, size_t sz)
 
     hash = malloc(SHA1_OUTPUT_LEN);
     if (hash == NULL) {
-	error(0, errno, "malloc output on `%s'", name);
+	error(0, errno, "malloc output on `%s'", fpath);
 	return NULL;
     }
 
@@ -94,26 +107,36 @@ hash_file_contents(char *name, size_t sz)
     close(fd);
 
     if (munmap(buf, sz) < 0) {
-	error(EXIT_FAILURE, errno, "unmapping `%s'", name);
+	error(EXIT_FAILURE, errno, "unmapping `%s'", fpath);
     }
 
     return hash;
 }
 
+/**
+ * @brief Get the hash string for a file.
+ *
+ * @details
+ * This takes a file's path, and returns a hash string corresponding to the
+ * contents of the file.
+ *
+ * @param fpath Path of the file.
+ * @return char* Hash string of the file contents
+ */
 char *
-get_file_hash(char *fname)
+get_file_hash(char *fpath)
 {
     struct stat fstat;
 
-    if (stat(fname, &fstat)) {
-	error(0, errno, "getting info on `%s'", fname);
+    if (stat(fpath, &fstat)) {
+	error(0, errno, "getting info on `%s'", fpath);
 	return NULL;
     }
     if (S_ISREG(fstat.st_mode) || S_ISLNK(fstat.st_mode)) {
 	size_t sz = fstat.st_size;
 
 	if (sz > 0) {
-	    uint8_t *h = hash_file_contents(fname, sz);
+	    uint8_t *h = hash_file_contents(fpath, sz);
 	    char *ret = hash_to_str(h);
 
 	    free(h);
