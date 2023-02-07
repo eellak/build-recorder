@@ -27,30 +27,65 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	"types.h"
 #include	"hash.h"
 #include	"record.h"
+#include	"tracer.h"
 
-/*
- * variables for the list of processes,
- * its size and the array size. As well as
- * a list of their respective pids with the
- * same size and array size.
+/***************************
+ * Process Global Variables
+ ***************************/
+
+/**
+ * @brief Array of PIDs of processes.
  */
-
 int *pids;
+
+/**
+ * @brief Array of processess' information.
+ *
+ * The info stuct at pinfo[i] corresponds to pid[i]
+ */
 PROCESS_INFO *pinfo;
+
+/**
+ * @brief Number of elements in the `pinfo` array
+ */
 int numpinfo;
+
+/**
+ * @brief Actual size of `pinfo` array
+ */
 int pinfo_size;
 
+/**
+ * @brief Default size of `pinfo`
+ */
+#define	DEFAULT_PINFO_SIZE	32
+
+/************************
+ * File Global Variables
+ ************************/
+
+/**
+ * @brief Array of files' information.
+ */
 FILE_INFO *finfo;
+
+/**
+ * @brief Number of elements in the `finfo` array
+ */
 int numfinfo;
+
+/**
+ * @brief Actual size of `finfo` array
+ */
 int finfo_size;
 
-#define	DEFAULT_PINFO_SIZE	32
 #define	DEFAULT_FINFO_SIZE	32
 
-/*
- * memory allocators for pinfo
- */
+/* memory allocators for pinfo */
 
+/**
+ * @brief Initialize the global process and file variables
+ */
 void
 init(void)
 {
@@ -64,6 +99,19 @@ init(void)
     numfinfo = -1;
 }
 
+/**
+ * @brief Add an entry of a process of given PID for tracking.
+ *
+ * @details
+ * This inserts `pid` at the end of the `pids` array as well as creates a space
+ * for its information struct in `pinfo`. If both the arrays are full (their sizes
+ * are always identical), it expands their sizes to double their current size.
+ *
+ * @param pid PID of the process
+ *
+ * @return PROCESS_INFO* Location of the space created to store the process's
+ * 						 information struct
+ */
 PROCESS_INFO *
 next_pinfo(pid_t pid)
 {
@@ -82,6 +130,19 @@ next_pinfo(pid_t pid)
     return pinfo + (++numpinfo);
 }
 
+/**
+ * @brief
+ *
+ * TODO: Entry of file to do what?
+ *
+ * @details
+ *
+ *
+ * @param pid PID of the process
+ *
+ * @return PROCESS_INFO* Location of the space created to store the process's
+ * 						 information struct
+ */
 FILE_INFO *
 next_finfo(void)
 {
@@ -95,6 +156,14 @@ next_finfo(void)
     return finfo + (++numfinfo);
 }
 
+/**
+ * @brief Populate the members of a `PROCESS_INFO` struct.
+ *
+ * TODO: what is the purpose of ignore_one_sigstop?
+ *
+ * @param self The struct
+ * @param ignore_one_sigstop
+ */
 void
 pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
 {
@@ -108,6 +177,14 @@ pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
     self->ignore_one_sigstop = ignore_one_sigstop;
 }
 
+/**
+ * @brief Populate the members of a `FILE_INFO` struct
+ *
+ * @param self The struct
+ * @param path Path of the file
+ * @param abspath Absolute path of the file
+ * @param hash Hash of the (TODO: path?) file
+ */
 void
 finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
 {
@@ -119,6 +196,12 @@ finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
     sprintf(self->outname, ":f%d", fcount++);
 }
 
+/**
+ * @brief Get a given process's information using it's PID
+ *
+ * @param pid PID of process
+ * @return PROCESS_INFO* Process information struct
+ */
 PROCESS_INFO *
 find_pinfo(pid_t pid)
 {
@@ -135,6 +218,13 @@ find_pinfo(pid_t pid)
     return pinfo + i;
 }
 
+/**
+ * @brief Find file's information using it's absolute path and hash.
+ *
+ * @param abspath Absolute path of file
+ * @param hash File's hash
+ * @return FILE_INFO* File information struct
+ */
 FILE_INFO *
 find_finfo(char *abspath, char *hash)
 {
@@ -157,6 +247,15 @@ find_finfo(char *abspath, char *hash)
     return finfo + i;
 }
 
+/**
+ * @brief Find file using it's file descriptor from a process's files.
+ *
+ * TODO: What are the processes's finfo array?
+ *
+ * @param self
+ * @param fd
+ * @return FILE_INFO*
+ */
 FILE_INFO *
 pinfo_find_finfo(PROCESS_INFO *self, int fd)
 {
@@ -173,6 +272,15 @@ pinfo_find_finfo(PROCESS_INFO *self, int fd)
     return self->finfo + i;
 }
 
+/**
+ * @brief Add an entry of a file of given file descriptor in a process's
+ * information struct for tracking and create  space for the file's
+ * information struct.
+ *
+ * @param self Process information struct
+ * @param fd File descriptor
+ * @return FILE_INFO* File information struct created
+ */
 FILE_INFO *
 pinfo_next_finfo(PROCESS_INFO *self, int fd)
 {
@@ -634,11 +742,11 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 		    restart_sig = WSTOPSIG(status);
 	    }
 
-	    // Restarting process 
+	    // Restarting process
 	    if (ptrace(PTRACE_SYSCALL, pid, NULL, restart_sig) < 0) {
 		error(EXIT_FAILURE, errno, "failed restarting process");
 	    }
-	} else if (WIFEXITED(status)) {	// child process exited 
+	} else if (WIFEXITED(status)) {	// child process exited
 	    --running;
 
 	    process_state = find_pinfo(pid);
@@ -666,6 +774,7 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 void
 trace(pid_t pid, char *path, char **envp)
 {
+    // Initializing pi and create space for it in `pids` and `pinfo`
     PROCESS_INFO *pi;
 
     pi = next_pinfo(pid);
@@ -675,6 +784,15 @@ trace(pid_t pid, char *path, char **envp)
     tracer_main(pid, pi, path, envp);
 }
 
+/**
+ * @brief Run the desired command provided by user as a child process.
+ *
+ * @details
+ * The desired process will be `tracee` and will be traced by the parent
+ * process while it runs as a child process.
+ *
+ * @param av Arg Vector of the child process
+ */
 void
 run_tracee(char **av)
 {
@@ -683,6 +801,12 @@ run_tracee(char **av)
     error(EXIT_FAILURE, errno, "after child exec()");
 }
 
+/**
+ * @brief Start the recording as well as execution of the desired command.
+ *
+ * @param av Arg Vector
+ * @param envp Environment Pointer
+ */
 void
 run_and_record_fnames(char **av, char **envp)
 {
@@ -694,6 +818,7 @@ run_and_record_fnames(char **av, char **envp)
     else if (pid == 0)
 	run_tracee(av);
 
+    // Parent peocess
     init();
     trace(pid, *av, envp);
 }
