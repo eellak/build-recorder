@@ -20,12 +20,20 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<error.h>
 #include	<errno.h>
 
+/**
+ * @brief Output file pointer
+ */
 FILE *fout;
 
+/**
+ * @brief Initialize the output file with metadata and the `fout` pointer.
+ *
+ * @param fpath Pathname of output file.
+ */
 void
-record_start(char *fname)
+record_start(char *fpath)
 {
-    fout = fopen(fname, "w");
+    fout = fopen(fpath, "w");
 
     fprintf(fout,
 	    "@prefix b:  <http://example.org/build-recorder#> .\n"
@@ -34,6 +42,16 @@ record_start(char *fname)
 	    "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n");
 }
 
+/**
+ * @brief Add a record entry to the output file.
+ *
+ * TODO
+ *
+ * @param s
+ * @param p
+ * @param o Output
+ * @param o_as_string Output as a string
+ */
 static void
 record_triple(char *s, const char *p, char *o, bool o_as_string)
 {
@@ -43,6 +61,12 @@ record_triple(char *s, const char *p, char *o, bool o_as_string)
 	fprintf(fout, "%s\t%s\t%s .\n", s, p, o);
 }
 
+/**
+ * @brief Current timestamp as a string
+ *
+ * @param s The string to populate with the current timestamp
+ * @param sz Max size of string
+ */
 static void
 timestamp_now(char *s, size_t sz)
 {
