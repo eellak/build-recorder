@@ -19,7 +19,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sys/mman.h>		       // madvise(2), mmap(2)
 #include <sys/stat.h>		       // lstat(2)
 #include <sys/sysinfo.h>	       // get_nprocs(3)
-#include <sys/types.h>		       // 
+#include <sys/types.h>		       //
 #include <unistd.h>		       // optind, readlink(2)
 
 #include <openssl/sha.h>	       // SHA_CTX, SHA1_Init, SHA1_Update,
@@ -32,10 +32,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	"hash.h"
 
 /**
- * @brief Convert a SHA256 hash value to a string.
+ * @brief Convert a SHA1 hash value to a string.
  *
- * @param h 256-bit hash value
- * @return char* Hash string
+ * @param h SHA1 hash value
+ * @return char* SHA1 Hash string
  */
 static char *
 hash_to_str(uint8_t *h)
@@ -62,7 +62,7 @@ hash_to_str(uint8_t *h)
  *
  * @param fpath Path-name of file
  * @param sz File size in bytes
- * @return uint8_t* 256-bit hash value
+ * @return uint8_t* SHA1 hash value
  */
 static uint8_t *
 hash_file_contents(char *fpath, size_t sz)
