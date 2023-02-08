@@ -1,8 +1,12 @@
 
 /**
- * @brief Get the file hash object
+ * @brief Get the hash string for a file.
  *
- * @param fname
- * @return char*
+ * @details
+ * This takes a file's path, and returns a hash string corresponding to the
+ * contents of the file.
+ *
+ * @param fpath Path of the file.
+ * @return char* Hash string of the file contents
  */
-char *get_file_hash(char *fname);
+char *get_file_hash(char *fpath);
