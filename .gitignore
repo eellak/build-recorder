@@ -34,7 +34,7 @@ tags
 a.out
 *.exe
 *.app
-build_recorder
+build-recorder
 
 # Linker output
 *.map
