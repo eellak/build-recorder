@@ -5,7 +5,7 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-bin_PROGRAMS = build_recorder
+bin_PROGRAMS = build-recorder
 
 build_recorder_SOURCES = \
     src/tracer.c \

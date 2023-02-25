@@ -1,4 +1,4 @@
-EXE = ../build_recorder
+EXE = ../build-recorder
 
 TEST_CASES = \
 	compile_single_file \
@@ -27,5 +27,8 @@ compile_two_files: f4.c f5.c
 
 
 clean:
-	%(RM) *.o a.out
+	$(RM) *.o a.out
+
+clobber: clean
+	$(RM) *.out
 
