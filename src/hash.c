@@ -114,6 +114,10 @@ get_file_hash(char *fname)
 
 	if (sz > 0) {
 	    uint8_t *h = hash_file_contents(fname, sz);
+	    if (h == NULL) {
+		return NULL;
+	    }
+
 	    char *ret = hash_to_str(h);
 
 	    free(h);
