@@ -22,8 +22,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sys/types.h>		       // 
 #include <unistd.h>		       // optind, readlink(2)
 
-#include <openssl/sha.h>	       // SHA_CTX, SHA1_Init, SHA1_Update,
-				       // SHA1_Final
+#include <openssl/evp.h>	       // EVP_sha1(), EVP_DigestInit_ex(),
+				       // EVP_DigestUpdate(),
+				       // EVP_DigestFinal_ex()
+
 #define SHA1_OUTPUT_LEN 20
 #define SHA1_HEXBUF_LEN (2 * SHA1_OUTPUT_LEN + 1)
 
@@ -77,7 +79,6 @@ hash_file_contents(char *name, size_t sz)
 
     presize = sprintf(pre, "blob %lu%c", sz, 0);
 
-    SHA_CTX ctx;
     unsigned char *hash;
 
     hash = malloc(SHA1_OUTPUT_LEN);
@@ -86,10 +87,17 @@ hash_file_contents(char *name, size_t sz)
 	return NULL;
     }
 
-    SHA1_Init(&ctx);
-    SHA1_Update(&ctx, pre, presize);
-    SHA1_Update(&ctx, buf, sz);
-    SHA1_Final(hash, &ctx);
+    const static EVP_MD *sha1_md;
+
+    if (sha1_md == 0)
+	sha1_md = EVP_sha1();
+
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+
+    EVP_DigestInit_ex(ctx, sha1_md, NULL);
+    EVP_DigestUpdate(ctx, pre, presize);
+    EVP_DigestUpdate(ctx, buf, sz);
+    EVP_DigestFinal_ex(ctx, hash, NULL);
 
     close(fd);
 
@@ -114,6 +122,10 @@ get_file_hash(char *fname)
 
 	if (sz > 0) {
 	    uint8_t *h = hash_file_contents(fname, sz);
+
+	    if (h == NULL)
+		return NULL;
+
 	    char *ret = hash_to_str(h);
 
 	    free(h);

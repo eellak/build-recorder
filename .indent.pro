@@ -82,7 +82,8 @@
 -Tva_list
 
 /* OpenSSL types */
--TSHA_CTX
+-TEVP_MD
+-TEVP_MD_CTX
 
 /* project-specific types */
 -TFILE_INFO
