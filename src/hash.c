@@ -99,6 +99,8 @@ hash_file_contents(char *name, size_t sz)
     EVP_DigestUpdate(ctx, buf, sz);
     EVP_DigestFinal_ex(ctx, hash, NULL);
 
+    EVP_MD_CTX_free(ctx);
+
     close(fd);
 
     if (munmap(buf, sz) < 0) {
