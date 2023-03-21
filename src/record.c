@@ -133,6 +133,8 @@ record_process_start(pid_t pid, char *poutname)
     record_triple(poutname, "a", "b:process", false);
     record_triple(poutname, "b:cmd", cmd_line, true);
     record_triple(poutname, "b:start", tbuf, true);
+
+    free(cmd_line);
 }
 
 void
