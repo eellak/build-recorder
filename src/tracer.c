@@ -145,6 +145,7 @@ find_finfo(char *abspath, char *hash)
 	    && ((hash == NULL && finfo[i].hash == NULL)
 		|| (hash != NULL && finfo[i].hash != NULL
 		    && !strcmp(hash, finfo[i].hash)))) {
+
 	    break;
 	}
 
