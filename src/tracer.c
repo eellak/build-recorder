@@ -398,11 +398,14 @@ handle_syscall_entry(pid_t pid, PROCESS_INFO *pi,
     char *oldpath;
 
     switch (entry->entry.nr) {
+#ifdef HAVE_SYS_RENAME
 	case SYS_rename:
 	    // int rename(const char *oldpath, const char *newpath);
 	    oldpath = get_str_from_process(pid, (void *) entry->entry.args[0]);
 	    handle_rename_entry(pid, pi, AT_FDCWD, oldpath);
 	    break;
+#endif
+#ifdef HAVE_SYS_RENAMEAT
 	case SYS_renameat:
 	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
 	    // const char *newpath);
@@ -410,6 +413,8 @@ handle_syscall_entry(pid_t pid, PROCESS_INFO *pi,
 	    oldpath = get_str_from_process(pid, (void *) entry->entry.args[1]);
 	    handle_rename_entry(pid, pi, olddirfd, oldpath);
 	    break;
+#endif
+#ifdef HAVE_SYS_RENAMEAT2
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd,
 	    // const char *newpath, unsigned int flags);
@@ -417,14 +422,19 @@ handle_syscall_entry(pid_t pid, PROCESS_INFO *pi,
 	    oldpath = get_str_from_process(pid, (void *) entry->entry.args[1]);
 	    handle_rename_entry(pid, pi, olddirfd, oldpath);
 	    break;
+#endif
+#ifdef HAVE_SYS_EXECVE
 	case SYS_execve:
 	    pi->entry_info =
 		    get_str_from_process(pid, (void *) entry->entry.args[0]);
 	    break;
+#endif
+#ifdef HAVE_SYS_EXECVEAT
 	case SYS_execveat:
 	    pi->entry_info =
 		    get_str_from_process(pid, (void *) entry->entry.args[1]);
 	    break;
+#endif
     }
 }
 
@@ -446,6 +456,7 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
     char *newpath;
 
     switch (entry->entry.nr) {
+#ifdef HAVE_SYS_OPEN
 	case SYS_open:
 	    // int open(const char *pathname, int flags, ...);
 	    fd = (int) exit->exit.rval;
@@ -454,6 +465,8 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 
 	    handle_open(pid, pi, fd, AT_FDCWD, path, flags);
 	    break;
+#endif
+#ifdef HAVE_SYS_CREAT
 	case SYS_creat:
 	    // int creat(const char *pathname, ...);
 	    fd = (int) exit->exit.rval;
@@ -462,6 +475,8 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 	    handle_open(pid, pi, fd, AT_FDCWD, path,
 			O_CREAT | O_WRONLY | O_TRUNC);
 	    break;
+#endif
+#ifdef HAVE_SYS_OPENAT
 	case SYS_openat:
 	    // int openat(int dirfd, const char *pathname, int flags, ...);
 	    fd = (int) exit->exit.rval;
@@ -471,6 +486,8 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 
 	    handle_open(pid, pi, fd, dirfd, path, flags);
 	    break;
+#endif
+#ifdef HAVE_SYS_CLOSE
 	case SYS_close:
 	    // int close(int fd);
 	    fd = (int) entry->entry.args[0];
@@ -496,6 +513,8 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 		--pi->numfinfo;
 	    }
 	    break;
+#endif
+#ifdef HAVE_SYS_EXECVE
 	case SYS_execve:
 	    // int execve(const char *pathname, char *const argv[],
 	    // char *const envp[]);
@@ -503,6 +522,8 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 
 	    handle_execve(pid, pi, AT_FDCWD, path);
 	    break;
+#endif
+#ifdef HAVE_SYS_EXECVEAT
 	case SYS_execveat:
 	    // int execveat(int dirfd, const char *pathname,
 	    // const char *const argv[], const char * const envp[],
@@ -512,12 +533,16 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 
 	    handle_execve(pid, pi, dirfd, path);
 	    break;
+#endif
+#ifdef HAVE_SYS_RENAME
 	case SYS_rename:
 	    // int rename(const char *oldpath, const char *newpath);
 	    newpath = get_str_from_process(pid, (void *) entry->entry.args[1]);
 
 	    handle_rename_exit(pid, pi, AT_FDCWD, newpath);
 	    break;
+#endif
+#ifdef HAVE_SYS_RENAMEAT
 	case SYS_renameat:
 	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
 	    // const char *newpath);
@@ -526,6 +551,8 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 
 	    handle_rename_exit(pid, pi, newdirfd, newpath);
 	    break;
+#endif
+#ifdef HAVE_SYS_RENAMEAT2
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd,
 	    // const char *newpath, unsigned int flags);
@@ -534,18 +561,25 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 
 	    handle_rename_exit(pid, pi, newdirfd, newpath);
 	    break;
+#endif
+#ifdef HAVE_SYS_FORK
 	case SYS_fork:
 	    // pid_t fork(void);
 	    handle_create_process(pi, exit->exit.rval);
 	    break;
+#endif
+#ifdef HAVE_SYS_VFORK
 	case SYS_vfork:
 	    // pid_t vfork(void);
 	    handle_create_process(pi, exit->exit.rval);
 	    break;
+#endif
+#ifdef HAVE_SYS_CLONE
 	case SYS_clone:
 	    // int clone(...);
 	    handle_create_process(pi, exit->exit.rval);
 	    break;
+#endif
     }
 }
 

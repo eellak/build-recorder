@@ -66,10 +66,18 @@ AC_CHECK_DECL([PTRACE_SYSCALL_INFO_EXIT],, AC_MSG_ERROR([cannot find PTRACE_SYSC
 AC_CHECK_DECL([SIGTRAP],, AC_MSG_ERROR([cannot find SIGTRAP]), [#include <sys/signal.h>])
 AC_CHECK_DECL([SIGSTOP],, AC_MSG_ERROR([cannot find SIGSTOP]), [#include <sys/signal.h>])
 
-AC_CHECK_DECL([SYS_open],, AC_MSG_ERROR([cannot find SYS_open]), [#include <sys/syscall.h>])
-AC_CHECK_DECL([SYS_creat],, AC_MSG_ERROR([cannot find SYS_creat]), [#include <sys/syscall.h>])
-AC_CHECK_DECL([SYS_openat],, AC_MSG_ERROR([cannot find SYS_openat]), [#include <sys/syscall.h>])
-AC_CHECK_DECL([SYS_close],, AC_MSG_ERROR([cannot find SYS_close]), [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_clone], [AC_DEFINE([HAVE_SYS_CLONE], [1], [[Define if SYS_clone is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_close], [AC_DEFINE([HAVE_SYS_CLOSE], [1], [[Define if SYS_close is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_creat], [AC_DEFINE([HAVE_SYS_CREAT], [1], [[Define if SYS_creat is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_execve], [AC_DEFINE([HAVE_SYS_EXECVE], [1], [[Define if SYS_execve is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_execveat], [AC_DEFINE([HAVE_SYS_EXECVEAT], [1], [[Define if SYS_execveat is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_fork], [AC_DEFINE([HAVE_SYS_FORK], [1], [[Define if SYS_fork is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_open], [AC_DEFINE([HAVE_SYS_OPEN], [1], [[Define if SYS_open is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_openat], [AC_DEFINE([HAVE_SYS_OPENAT], [1], [[Define if SYS_openat is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_rename], [AC_DEFINE([HAVE_SYS_RENAME], [1], [[Define if SYS_rename is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_renameat], [AC_DEFINE([HAVE_SYS_RENAMEAT], [1], [[Define if SYS_renameat is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_renameat2], [AC_DEFINE([HAVE_SYS_RENAMEAT2], [1], [[Define if SYS_renameat2 is available]])],, [#include <sys/syscall.h>])
+AC_CHECK_DECL([SYS_vfork], [AC_DEFINE([HAVE_SYS_VFORK], [1], [[Define if SYS_vfork is available]])],, [#include <sys/syscall.h>])
 
 AC_CHECK_DECL([MADV_SEQUENTIAL],, AC_MSG_ERROR([cannot find MADV_SEQUENTIAL]), [#include <sys/mman.h>])
 
