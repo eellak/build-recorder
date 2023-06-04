@@ -86,8 +86,7 @@ AC_CHECK_FUNC([fork],, AC_MSG_ERROR([cannot find fork(2)]))
 AC_CHECK_FUNC([ptrace],, AC_MSG_ERROR([cannot find ptrace(2)]))
 AC_CHECK_FUNC([waitpid],, AC_MSG_ERROR([cannot find waitpid(2)]))
 
-AC_CHECK_FUNC([mmap],, AC_MSG_ERROR([cannot find mmap(2)]))
-AC_CHECK_FUNC([madvise],, AC_MSG_ERROR([cannot find madvise(2)]))
+AC_CHECK_FUNC([mmap],, AC_MSG_ERROR([cannot find mmap(2)])) AC_CHECK_FUNC([madvise],, AC_MSG_ERROR([cannot find madvise(2)]))
 
 AC_CHECK_FUNC([EVP_DigestInit_ex],, AC_MSG_ERROR([cannot find EVP_DigestInit_ex(3)]))
 AC_CHECK_FUNC([EVP_DigestUpdate],, AC_MSG_ERROR([cannot find EVP_DigestUpdate(3)]))
@@ -100,7 +99,7 @@ dnl Are we building from git checked-out sources, or a tarball?
 AM_CONDITIONAL([BUILD_FROM_GIT], [test -d "$srcdir/.git"])
 
 dnl What files to generate
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile test/Makefile])
 
 dnl Finally, generate everything
 AC_OUTPUT
