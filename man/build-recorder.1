@@ -1,0 +1,105 @@
+.\" Copyright (C) 2023 Alexios Zavras
+.\" Copyright (C) 2023 Fotios Valasiadis
+.\" SPDX-License-Identifier: LGPL-2.1-or-later
+
+.TH BUILD-RECORDER 1 "June 5, 2023" "build-recorder"
+.SH NAME
+build-recorder \- utility to fully record the interactions between assets (files and tools) when a software artifact is being built (compiled)
+.SH SYNOPSIS
+.B build-recorder
+[\-o outfile]
+.Ar command
+.SH DESCRIPTION
+.B build-recorder
+runs the specified build command until it exits, intercepting the system calls its processes call in an attempt to create a build record, regardless of the programming language, build system, or configuration used.
+.SH OUTPUT FORMAT
+The information recorded by
+.B build-recorder
+is represented in RDF triples and saved in the Turtle format in an output file, "build-recorder.out", or to the file specified with the \-o option.
+
+.PP
+The ontology used in the output includes the following special types and predicates:
+
+.SS Types
+.TP
+.B b:process
+Represents a process.
+.TP
+.B b:file
+Represents a file.
+
+.SS Process Properties
+.TP
+.B b:pid
+The process ID. (Range: xsd:integer)
+.TP
+.B b:cmd
+The actual command line, obtained by concatenating all arguments separated by white space. (Range: xsd:string)
+.TP
+.B b:start
+The start timestamp. (Range: xsd:dateTime)
+.TP
+.B b:end
+The end timestamp. (Range: xsd:dateTime)
+.TP
+.B b:env
+An environment entry in the form of "VAR=value". (Range: xsd:string)
+
+.SS File Properties
+.TP
+.B b:name
+The file name. (Range: xsd:string)
+.TP
+.B b:size
+The file size in bytes. (Range: xsd:integer)
+.TP
+.B b:hash
+A hexadecimal string representing a unique, git-compatible hash of the file's content. (Range: xsd:string)
+.TP
+.B b:abspath
+The absolute path of the file. (Range: xsd:string)
+
+.SS Relationships
+.TP
+.B b:creates
+Indicates that a process creates another process. (Domain: b:process, Range: b:process)
+.TP
+.B b:reads
+Indicates that a process reads a file. (Domain: b:process, Range: b:file)
+.TP
+.B b:writes
+Indicates that a process writes a file. (Domain: b:process, Range: b:file)
+.TP
+.B b:executable
+Indicates that a process is an executable file. (Domain: b:process, Range: b:file)
+
+.PP
+For an example, please refer to the file doc/output.md included in the project's repository or alternatively with the build-recorder package.
+
+.SH BUGS
+There is a very slight chance that build-recorder might produce invalid information about a build process, specifically in scenarios of concurrent accesses to the assets used by said process, such as during a system update.
+
+.PP
+Build-recorder generally isn't affected by concurrent modifications, but there is a very small window in which a race condition may occur. Use it during such circumstances at your own risk.
+
+.PP
+Overcoming this limitation would require implementing system-wide locks on files, which contradicts the project's goals of being an easy to use, non-intrusive, and universally applicable solution.
+
+.PP
+Besides that, we try our best to eliminate all bugs.
+
+.PP
+Report bugs at https://github.com/eellak/build-recorder/issues
+
+.SH SEE ALSO
+strace(1), ptrace(2), syscall(2)
+
+.SH AUTHORS
+Written by Alexios Zavras and Fotios Valasiadis.
+
+.SH COPYRIGHT
+Copyright (c) 2023 Fotios Valasiadis
+.br
+Copyright (c) 2023 Alexios Zavras
+.br
+This manual page is licensed under the terms of the LGPL-2.1-or-later.
