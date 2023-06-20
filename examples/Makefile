@@ -1,6 +1,6 @@
 EXE = ../build-recorder
 
-TEST_CASES = \
+EXAMPLES = \
 	compile_single_file \
 	compile_link_file \
 	compile_file_include \
@@ -8,7 +8,7 @@ TEST_CASES = \
 	compile_two_files \
 	$(EMPTY)
 
-all: $(TEST_CASES)
+all: $(EXAMPLES)
 
 compile_single_file: f1.c
 	$(EXE) -o $@.out gcc -c $^
