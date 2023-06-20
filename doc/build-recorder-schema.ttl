@@ -1,0 +1,98 @@
+# Copyright (C) 2023 Fotios Valasiadis
+# Copyright (C) 2023 Alexios Zavras
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+@prefix b: <http://example.org/build-recorder#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Types
+b:process a rdfs:Class ;
+    rdfs:label "Process" ;
+    rdfs:comment "Represents a process." .
+
+b:file a rdfs:Class .
+    rdfs:label "File" ;
+    rdfs:comment "Represents a file." .
+
+# Process Properties
+b:pid a rdf:Property ;
+    rdfs:label "PID" ;
+    rdfs:domain b:process ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "the process ID." .
+
+b:cmd a rdf:Property ;
+    rdfs:label "Command" ;
+    rdfs:domain b:process ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The actual command line, obtained by concatenating all arguments separated by white space." .
+
+b:start a rdf:Property ;
+    rdfs:label "Process start" ;
+    rdfs:domain b:process ;
+    rdfs:range xsd:dateTime ;
+    rdfs:comment "The start timestamp." .
+
+b:end a rdf:Property ;
+    rdfs:label "Process end" ;
+    rdfs:domain b:process ;
+    rdfs:range xsd:dateTime ;
+    rdfs:comment "The end timestamp." .
+
+b:env a rdf:Property ;
+    rdfs:label "Environment entry" ;
+    rdfs:domain b:process ;
+    rdfs:range xsd:string ;
+    rdfs:comment "An environment entry in the form of \"VAR=value\"." .
+
+# File Properties
+b:name a rdf:Property ;
+    rdfs:label "File name" ;
+    rdfs:domain b:file ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The file name." .
+
+b:size a rdf:Property ;
+    rdfs:label "File size" ;
+    rdfs:domain b:file ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "The file size in bytes." .
+
+b:hash a rdf:Property ;
+    rdfs:label "File checksum" ;
+    rdfs:domain b:file ;
+    rdfs:range xsd:string ;
+    rdfs:comment "A hexadecimal string representing a unique, git-compatible hash of the file's content." .
+
+b:abspath a rdf:Property ;
+    rdfs:label "File absolute path" ;
+    rdfs:domain b:file ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The absolute path of the file." .
+
+# Relationships
+b:creates a rdf:Property ;
+    rdfs:label "Creates" ;
+    rdfs:domain b:process ;
+    rdfs:range b:process ;
+    rdfs:comment "Indicates that a process creates another process." .
+
+b:reads a rdf:Property ;
+    rdfs:label "Reads" ;
+    rdfs:domain b:process ;
+    rdfs:range b:file ;
+    rdfs:comment "Indicates that a process reads a file." .
+
+b:writes a rdf:Property ;
+    rdfs:label "Writes" ;
+    rdfs:domain b:process ;
+    rdfs:range b:file ;
+    rdfs:comment "Indicates that a process writes a file." .
+
+b:executable a rdf:Property ;
+    rdfs:label "Executable" ;
+    rdfs:domain b:process ;
+    rdfs:range b:file ;
+    rdfs:comment "Indicates that a process is an executable file." .
