@@ -26,6 +26,14 @@ dnl Where are the sources
 AC_CONFIG_SRCDIR([src/main.c])
 
 dnl Checks for programs
+AC_CHECK_PROGS(DOWNLOAD, curl, [curl -O])
+if test "x$DOWNLOAD" = x; then
+    AC_CHECK_PROGS(DOWNLOAD, wget, wget)
+fi
+AM_CONDITIONAL([HAVE_DOWNLOAD], [test -n "$DOWNLOAD"])
+AC_CHECK_PROGS(TIME, time, time -v)
+AM_CONDITIONAL([HAVE_TIME], [test -n "$TIME"])
+
 dnl Checks for libraries
 AC_CHECK_LIB(crypto, EVP_sha1,, AC_MSG_ERROR([cannot find libcrypto]))
 
@@ -100,7 +108,7 @@ dnl Are we building from git checked-out sources, or a tarball?
 AM_CONDITIONAL([BUILD_FROM_GIT], [test -d "$srcdir/.git"])
 
 dnl What files to generate
-AC_CONFIG_FILES([Makefile examples/Makefile])
+AC_CONFIG_FILES([Makefile examples/Makefile benchmark/Makefile])
 
 dnl Finally, generate everything
 AC_OUTPUT
