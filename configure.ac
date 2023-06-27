@@ -100,7 +100,7 @@ dnl Are we building from git checked-out sources, or a tarball?
 AM_CONDITIONAL([BUILD_FROM_GIT], [test -d "$srcdir/.git"])
 
 dnl What files to generate
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile examples/Makefile])
 
 dnl Finally, generate everything
 AC_OUTPUT

@@ -13,3 +13,4 @@ build_recorder_SOURCES = \
     src/record.c \
     src/main.c
 
+SUBDIRS = examples
