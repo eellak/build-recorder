@@ -18,7 +18,9 @@ $(error Did not find "time" in the PATH.)
 endif
 
 
-all: $(BENCHOUT)
+all:
+
+benchmark: $(BENCHOUT)
 
 $(LOCAL_FILE):
 	$(DOWNLOAD) $(DL_URL)

@@ -11,7 +11,9 @@ EXAMPLES = \
 	compile_two_files \
 	$(EMPTY)
 
-all: $(EXAMPLES)
+all:
+
+examples: $(EXAMPLES)
 
 compile_single_file: f1.c
 	$(EXE) -o $@.out $(CC) -c $^
