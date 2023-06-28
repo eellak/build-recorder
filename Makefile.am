@@ -13,4 +13,8 @@ build_recorder_SOURCES = \
     src/record.c \
     src/main.c
 
-SUBDIRS = examples benchmark
+check:
+	$(MAKE) -C examples
+
+benchmark:
+	$(MAKE) -C benchmark
