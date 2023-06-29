@@ -26,12 +26,12 @@ dnl Where are the sources
 AC_CONFIG_SRCDIR([src/main.c])
 
 dnl Checks for programs
-AC_CHECK_PROGS(DOWNLOAD, curl, [curl -O])
+AC_CHECK_PROG(DOWNLOAD, curl, [curl -O])
 if test "x$DOWNLOAD" = x; then
-    AC_CHECK_PROGS(DOWNLOAD, wget, wget)
+    AC_CHECK_PROG(DOWNLOAD, wget, wget)
 fi
 AM_CONDITIONAL([HAVE_DOWNLOAD], [test -n "$DOWNLOAD"])
-AC_CHECK_PROGS(TIME, time, time -v)
+AC_PATH_PROG(TIME, time)
 AM_CONDITIONAL([HAVE_TIME], [test -n "$TIME"])
 
 dnl Checks for libraries

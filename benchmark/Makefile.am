@@ -15,6 +15,8 @@ endif
 
 if !HAVE_TIME
 $(error Did not find "time" in the PATH.)
+else
+TIMER = $(TIME) -v
 endif
 
 
@@ -33,9 +35,9 @@ $(LOCAL_DIR)/config.h: $(LOCAL_DIR)
 
 $(BENCHOUT): $(LOCAL_DIR)/config.h
 	cd $(LOCAL_DIR) && make clean
-	cd $(LOCAL_DIR) && $(TIME) make
+	cd $(LOCAL_DIR) && $(TIMER) make
 	cd $(LOCAL_DIR) && make clean
-	cd $(LOCAL_DIR) && $(TIME) ../$(EXE) make
+	cd $(LOCAL_DIR) && $(TIMER) ../$(EXE) make
 
 compile_single_file: f1.c
 	$(EXE) -o $@.out $(CC) -c $^
