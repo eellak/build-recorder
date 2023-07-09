@@ -33,6 +33,9 @@ fi
 AM_CONDITIONAL([HAVE_DOWNLOAD], [test -n "$DOWNLOAD"])
 AC_PATH_PROG(TIME, time)
 AM_CONDITIONAL([HAVE_TIME], [test -n "$TIME"])
+AC_CHECK_PROG(AWK, awk, [awk])
+AM_CONDITIONAL([HAVE_AWK], [test -n "$AWK"])
+
 
 dnl Checks for libraries
 AC_CHECK_LIB(crypto, EVP_sha1,, AC_MSG_ERROR([cannot find libcrypto]))
