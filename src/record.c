@@ -27,11 +27,12 @@ record_start(char *fname)
 {
     fout = fopen(fname, "w");
 
-    fprintf(fout,
-	    "@prefix b:  <http://example.org/build-recorder#> .\n"
-	    "@prefix :  <http://example.org/build-recorder/run#> .\n"
-	    "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n"
-	    "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n");
+    extern char schema[];
+    extern unsigned int schema_len;
+
+    fwrite(schema, sizeof (char), schema_len, fout);
+
+    fprintf(fout, "\n\n");
 }
 
 static void

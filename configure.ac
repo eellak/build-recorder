@@ -19,7 +19,7 @@ dnl Minimum autoconf version required
 AC_PREREQ([2.69])
 
 dnl Where to generate output
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_HEADERS([src/config.h])
 
 
 dnl Where are the sources
@@ -35,6 +35,8 @@ AC_PATH_PROG(TIME, time)
 AM_CONDITIONAL([HAVE_TIME], [test -n "$TIME"])
 AC_CHECK_PROG(AWK, awk, [awk])
 AM_CONDITIONAL([HAVE_AWK], [test -n "$AWK"])
+AC_CHECK_PROG(XXD, xxd, [xxd])
+AM_CONDITIONAL([HAVE_XXD], [test -n "$XXD"])
 
 
 dnl Checks for libraries
@@ -111,7 +113,7 @@ dnl Are we building from git checked-out sources, or a tarball?
 AM_CONDITIONAL([BUILD_FROM_GIT], [test -d "$srcdir/.git"])
 
 dnl What files to generate
-AC_CONFIG_FILES([Makefile examples/Makefile benchmark/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile examples/Makefile benchmark/Makefile])
 
 dnl Finally, generate everything
 AC_OUTPUT
