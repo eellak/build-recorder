@@ -2,7 +2,7 @@
 # Copyright (C) 2023 Alexios Zavras
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-@prefix b: <http://example.org/build-recorder#> .
+@prefix b: <http://build-recorder.org/rdf#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .

@@ -5,12 +5,5 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-bin_PROGRAMS = build-recorder
+SUBDIRS = src examples benchmark
 
-build_recorder_SOURCES = \
-    src/tracer.c \
-    src/hash.c \
-    src/record.c \
-    src/main.c
-
-SUBDIRS = examples benchmark
