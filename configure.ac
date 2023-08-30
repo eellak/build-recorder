@@ -41,6 +41,7 @@ AM_CONDITIONAL([HAVE_XXD], [test -n "$XXD"])
 
 dnl Checks for libraries
 AC_CHECK_LIB(crypto, EVP_sha1,, AC_MSG_ERROR([cannot find libcrypto]))
+AC_CHECK_LIB(pthread, pthread_create,, AC_MSG_ERROR([cannot find libpthread]))
 
 dnl Checks for headers
 AC_CHECK_HEADER([linux/ptrace.h],, AC_MSG_ERROR([cannot find linux/ptrace.h]))
@@ -54,11 +55,16 @@ AC_CHECK_HEADER([sys/sysinfo.h],, AC_MSG_ERROR([cannot find sys/sysinfo.h]))
 AC_CHECK_HEADER([sys/types.h],, AC_MSG_ERROR([cannot find sys/types.h]))
 AC_CHECK_HEADER([sys/wait.h],, AC_MSG_ERROR([cannot find sys/wait.h]))
 AC_CHECK_HEADER([sysexits.h],, AC_MSG_ERROR([cannot find sysexits.h]))
+AC_CHECK_HEADER([pthread.h],, AC_MSG_ERROR([cannot find pthread.h]))
 
 dnl Checks for typedefs and structures
 AC_CHECK_TYPE([struct ptrace_syscall_info],, AC_MSG_ERROR([cannot find struct ptrace_syscall_info]), [#include <linux/ptrace.h>])
 
 AC_CHECK_TYPE([pid_t],, AC_MSG_ERROR([cannot find pid_t]), [#include <sys/types.h>])
+
+AC_CHECK_TYPE([pthread_t],, AC_MSG_ERROR([cannot find pthread_t]), [#include <pthread.h>])
+AC_CHECK_TYPE([pthread_mutex_t],, AC_MSG_ERROR([cannot find pthread_mutex_t]), [#include <pthread.h>])
+AC_CHECK_TYPE([pthread_cond_t],, AC_MSG_ERROR([cannot find pthread_cond_t]), [#include <pthread.h>])
 
 AC_CHECK_DECL([PATH_MAX],, AC_MSG_ERROR([cannot find PATH_MAX]), [#include <linux/limits.h>])
 AC_CHECK_DECL([ARG_MAX],, AC_MSG_ERROR([cannot find ARG_MAX]), [#include <linux/limits.h>])
@@ -105,6 +111,18 @@ AC_CHECK_FUNC([madvise],, AC_MSG_ERROR([cannot find madvise(2)]))
 AC_CHECK_FUNC([EVP_DigestInit_ex],, AC_MSG_ERROR([cannot find EVP_DigestInit_ex(3)]))
 AC_CHECK_FUNC([EVP_DigestUpdate],, AC_MSG_ERROR([cannot find EVP_DigestUpdate(3)]))
 AC_CHECK_FUNC([EVP_DigestFinal_ex],, AC_MSG_ERROR([cannot find EVP_DigestFinal_ex(3)]))
+
+AC_CHECK_FUNC([pthread_mutex_lock],, AC_MSG_ERROR([cannot find pthread_mutex_lock(3)]))
+AC_CHECK_FUNC([pthread_cond_wait],, AC_MSG_ERROR([cannot find pthread_cond_wait(3)]))
+AC_CHECK_FUNC([pthread_mutex_unlock],, AC_MSG_ERROR([cannot find pthread_mutex_unlock(3)]))
+AC_CHECK_FUNC([pthread_mutex_init],, AC_MSG_ERROR([cannot find pthread_mutex_init(3)]))
+AC_CHECK_FUNC([pthread_cond_init],, AC_MSG_ERROR([cannot find pthread_cond_init(3)]))
+AC_CHECK_FUNC([pthread_create],, AC_MSG_ERROR([cannot find pthread_create(3)]))
+AC_CHECK_FUNC([pthread_cond_signal],, AC_MSG_ERROR([cannot find pthread_cond_signal(3)]))
+AC_CHECK_FUNC([pthread_cond_broadcast],, AC_MSG_ERROR([cannot find pthread_cond_broadcast(3)]))
+AC_CHECK_FUNC([pthread_join],, AC_MSG_ERROR([cannot find pthread_join(3)]))
+AC_CHECK_FUNC([pthread_mutex_destroy],, AC_MSG_ERROR([cannot find pthread_mutex_destroy(3)]))
+AC_CHECK_FUNC([pthread_cond_destroy],, AC_MSG_ERROR([cannot find pthread_cond_destroy(3)]))
 
 dnl We need a C compiler
 AC_PROG_CC

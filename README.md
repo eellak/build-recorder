@@ -31,6 +31,7 @@ To build it you are going to need the following tools:
 
 As well as the following libraries:
 * libcrypto
+* libpthread
 ### Build from github repository
 In order to build from the github repository directly, you are also going
 to need
