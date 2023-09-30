@@ -10,6 +10,7 @@ build_recorder_SOURCES = \
 	record.c \
 	schema.c \
 	tracer.c \
+	threadpool.c \
 	$(EMPTY)
 
 SCHEMA = ../doc/build-recorder-schema.ttl
