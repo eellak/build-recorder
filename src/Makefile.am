@@ -12,8 +12,11 @@ build_recorder_SOURCES = \
 	tracer.c \
 	$(EMPTY)
 
+dist_noinst_HEADERS = *.h
+
 SCHEMA = ../doc/build-recorder-schema.ttl
 
+dist_data_DATA = $(SCHEMA)
 
 if HAVE_XXD
 schema.c: $(SCHEMA)
