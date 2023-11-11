@@ -10,6 +10,7 @@ build_recorder_SOURCES = \
 	record.c \
 	schema.c \
 	tracer.c \
+	portable_error.c \
 	$(EMPTY)
 
 dist_noinst_HEADERS = *.h

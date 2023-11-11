@@ -7,7 +7,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include "config.h"
 
 #include <errno.h>		       // errno(3)
-#include <error.h>		       // error(3)
 #include <fcntl.h>		       // open(2)
 #include <limits.h>		       // PATH_MAX
 #include <stdint.h>		       // uint8_t
@@ -32,6 +31,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #define	ZERO_FILE_HASH	"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
 
 #include	"hash.h"
+#include 	"portable_error.h"	// error(3)
 
 static char *
 hash_to_str(uint8_t *h)

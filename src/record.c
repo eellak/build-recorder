@@ -7,6 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	"config.h"
 
 #include	"record.h"
+#include	"portable_error.h"
 
 #include	<stdbool.h>
 #include	<stdio.h>
@@ -17,7 +18,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	<sys/types.h>
 #include	<sys/stat.h>
 #include	<fcntl.h>
-#include	<error.h>
 #include	<errno.h>
 
 FILE *fout;
