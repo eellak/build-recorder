@@ -8,6 +8,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include	"record.h"
 
+char schema[] = {
+    #include "schema.h"
+};
+
 #include	<stdbool.h>
 #include	<stdio.h>
 #include	<stdlib.h>
@@ -27,10 +31,7 @@ record_start(char *fname)
 {
     fout = fopen(fname, "w");
 
-    extern char schema[];
-    extern unsigned int schema_len;
-
-    fwrite(schema, sizeof (char), schema_len, fout);
+    fwrite(schema, sizeof (char), sizeof(schema), fout);
 
     fprintf(fout, "\n\n");
 }

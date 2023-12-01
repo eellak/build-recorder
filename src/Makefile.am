@@ -7,15 +7,16 @@ bin_PROGRAMS = build-recorder
 build_recorder_SOURCES = \
 	hash.c \
 	main.c \
+	schema.h \
 	record.c \
-	schema.c \
 	tracer.c \
 	$(EMPTY)
 
 SCHEMA = ../doc/build-recorder-schema.ttl
 
+record.c: schema.h
 
 if HAVE_XXD
-schema.c: $(SCHEMA)
-	sed '/^#/d' $^ | $(XXD) -i -n schema > $@
+schema.h: $(SCHEMA)
+	sed '/^#/d' $^ | $(XXD) -i > $@
 endif
