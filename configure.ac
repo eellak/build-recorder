@@ -25,6 +25,13 @@ AC_CONFIG_HEADERS([src/config.h])
 dnl Where are the sources
 AC_CONFIG_SRCDIR([src/main.c])
 
+AC_ARG_ENABLE([benchmarks],
+	      [AS_HELP_STRING([--enable-benchmarks], [exclude benchmarks (default: disabled)])],
+	      [enable_benchmarks=$enableval],
+	      [enable_benchmarks=no])
+
+AM_CONDITIONAL([ENABLE_BENCHMARKS], [test "x$enable_benchmarks" = "xyes"])
+
 dnl Checks for programs
 AC_CHECK_PROG(DOWNLOAD, curl, [curl -O])
 if test "x$DOWNLOAD" = x; then

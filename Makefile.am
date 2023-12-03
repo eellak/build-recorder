@@ -5,5 +5,8 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src examples benchmark
+SUBDIRS = src examples
 
+if ENABLE_BENCHMARKS
+SUBDIRS += benchmark
+endif
