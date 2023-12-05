@@ -14,6 +14,8 @@ build_recorder_SOURCES = \
 
 dist_noinst_HEADERS = *.h
 
+EXTRA_DIST = schema.c
+
 SCHEMA = ../doc/build-recorder-schema.ttl
 
 dist_data_DATA = $(SCHEMA)
