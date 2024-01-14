@@ -11,9 +11,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include <sys/ptrace.h>
-#include        <linux/ptrace.h>
 
 /*
  * For each file, we keep its name/path
@@ -34,8 +34,8 @@ typedef struct {
  * For each (sub-)process we keep its pid,
  * the command line (including all the arguments)
  * the list of files that are currently open for writing,
- * and, while it's running, its current syscall
- * stop info struct.
+ * and, while it's running, its current syscall number
+ * and arguments.
  */
 typedef struct {
     char outname[16];
@@ -44,7 +44,8 @@ typedef struct {
     FILE_INFO *finfo;
     int numfinfo;
     int finfo_size;
-    struct ptrace_syscall_info state;
+    uint64_t nr;
+    uint64_t args[6];
     void *entry_info;
     char ignore_one_sigstop;
 } PROCESS_INFO;
