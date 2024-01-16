@@ -7,7 +7,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "config.h"
 
-#include <error.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +14,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include <unistd.h>
 
 #include "record.h"
+#include "portable_error.h"
 
 void run_and_record_fnames(char **av, char **envp);
 

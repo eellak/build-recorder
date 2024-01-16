@@ -8,7 +8,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	"config.h"
 
 #include	<errno.h>
-#include	<error.h>
 #include	<stdlib.h>
 #include	<stdio.h>
 #include	<stddef.h>
@@ -27,6 +26,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	"types.h"
 #include	"hash.h"
 #include	"record.h"
+#include	"portable_error.h"
 
 /*
  * variables for the list of processes,
