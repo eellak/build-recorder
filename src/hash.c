@@ -101,7 +101,9 @@ hash_file_contents(char *name, size_t sz)
 
     EVP_MD_CTX_free(ctx);
 
-    close(fd);
+    if (close(fd) < 0) {
+	error(EXIT_FAILURE, errno, "on hash_file_contents close");
+    }
 
     if (munmap(buf, sz) < 0) {
 	error(EXIT_FAILURE, errno, "unmapping `%s'", name);
