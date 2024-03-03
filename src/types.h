@@ -27,6 +27,7 @@ typedef struct {
     char *path;
     char *abspath;
     char *hash;
+    size_t size;
     char outname[16];
 } FILE_INFO;
 

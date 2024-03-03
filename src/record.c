@@ -199,6 +199,15 @@ record_hash(char *foutname, char *hash)
 }
 
 void
+record_size(char *foutname, size_t sz)
+{
+    char size[32];
+
+    sprintf(size, "%lu", sz);
+    record_triple(foutname, "b:size", size, false);
+}
+
+void
 record_process_create(char *p1outname, char *p2outname)
 {
     record_triple(p1outname, "b:creates", p2outname, false);

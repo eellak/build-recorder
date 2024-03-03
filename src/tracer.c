@@ -109,13 +109,14 @@ pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
 }
 
 void
-finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash)
+finfo_new(FILE_INFO *self, char *path, char *abspath, char *hash, size_t sz)
 {
     static int fcount = 0;
 
     self->path = path;
     self->abspath = abspath;
     self->hash = hash;
+    self->size = sz;
     sprintf(self->outname, ":f%d", fcount++);
 }
 
@@ -264,6 +265,19 @@ find_in_path(char *path)
     return ret;
 }
 
+static size_t
+get_file_size(char *fname)
+{
+    struct stat fstat;
+
+    if (stat(fname, &fstat)) {
+	error(0, errno, "getting `%s' size", fname);
+	return -1;
+    }
+
+    return fstat.st_size;
+}
+
 static void
 handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
 	    int purpose)
@@ -278,13 +292,15 @@ handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
 
     if ((purpose & O_ACCMODE) == O_RDONLY) {
 	char *hash = get_file_hash(abspath);
+	size_t sz = get_file_size(abspath);
 
 	f = find_finfo(abspath, hash);
 	if (!f) {
 	    f = next_finfo();
-	    finfo_new(f, path, abspath, hash);
+	    finfo_new(f, path, abspath, hash, sz);
 	    record_file(f->outname, path, abspath);
 	    record_hash(f->outname, hash);
+	    record_size(f->outname, sz);
 	} else {
 	    free(path);
 	    free(abspath);
@@ -292,7 +308,7 @@ handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
 	}
     } else {
 	f = pinfo_next_finfo(pi, fd);
-	finfo_new(f, path, abspath, NULL);
+	finfo_new(f, path, abspath, NULL, -1);
 	record_file(f->outname, path, abspath);
     }
 
@@ -319,15 +335,17 @@ handle_execve(pid_t pid, PROCESS_INFO *pi, int dirfd, char *path)
     }
 
     char *hash = get_file_hash(abspath);
+    size_t sz = get_file_size(abspath);
 
     FILE_INFO *f;
 
     if (!(f = find_finfo(abspath, hash))) {
 	f = next_finfo();
 
-	finfo_new(f, path, abspath, hash);
+	finfo_new(f, path, abspath, hash, sz);
 	record_file(f->outname, path, abspath);
 	record_hash(f->outname, f->hash);
+	record_size(f->outname, sz);
     } else {
 	free(abspath);
 	free(hash);
@@ -342,14 +360,16 @@ handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
     char *abspath = absolutepath(pid, olddirfd, oldpath);
     char *hash = get_file_hash(abspath);
+    size_t sz = get_file_size(abspath);
 
     FILE_INFO *f = find_finfo(abspath, hash);
 
     if (!f) {
 	f = next_finfo();
-	finfo_new(f, oldpath, abspath, hash);
+	finfo_new(f, oldpath, abspath, hash, sz);
 	record_file(f->outname, oldpath, abspath);
 	record_hash(f->outname, f->hash);
+	record_size(f->outname, sz);
     } else {
 	free(oldpath);
 	free(abspath);
@@ -370,9 +390,10 @@ handle_rename_exit(pid_t pid, PROCESS_INFO *pi, int newdirfd, char *newpath)
 
     FILE_INFO *to = next_finfo();
 
-    finfo_new(to, newpath, abspath, from->hash);
+    finfo_new(to, newpath, abspath, from->hash, from->size);
     record_file(to->outname, newpath, abspath);
     record_hash(to->outname, to->hash);
+    record_size(to->outname, to->size);
 
     record_rename(pi->outname, from->outname, to->outname);
 }
@@ -496,7 +517,10 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 
 	    if (f != NULL) {
 		f->hash = get_file_hash(f->abspath);
+		f->size = get_file_size(f->abspath);
+
 		record_hash(f->outname, f->hash);
+		record_size(f->outname, f->size);
 
 		// Add it to global cache list
 		*next_finfo() = *f;
