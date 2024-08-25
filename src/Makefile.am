@@ -18,6 +18,8 @@ SCHEMA = ../doc/build-recorder-schema.ttl
 
 dist_data_DATA = $(SCHEMA)
 
+record.c: schema.c
+
 if HAVE_XXD
 schema.c: $(SCHEMA)
 	sed '/^#/d' $^ | $(XXD) -i -n schema > $@
