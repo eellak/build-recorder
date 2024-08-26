@@ -7,7 +7,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include "config.h"
 
 #include <errno.h>		       // errno(3)
-#include <error.h>		       // error(3)
 #include <fcntl.h>		       // open(2)
 #include <limits.h>		       // PATH_MAX
 #include <stdint.h>		       // uint8_t
@@ -59,19 +58,22 @@ hash_file_contents(char *name, size_t sz)
     int fd = open(name, O_RDONLY);
 
     if (fd < 0) {
-	error(0, errno, "open `%s'", name);
+	fprintf(stderr, "hash.c:hash_file_contents():open(%s): %s", name,
+		strerror(errno));
 	return NULL;
     }
     char *buf = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
 
     if (buf == MAP_FAILED) {
-	error(0, errno, "mmaping `%s'", name);
+	fprintf(stderr, "hash.c:hash_file_contents():mmap(%s): %s", name,
+		strerror(errno));
 	return NULL;
     }
     int ret = madvise(buf, sz, MADV_SEQUENTIAL);
 
     if (ret) {
-	error(0, errno, "madvise `%s'", name);
+	fprintf(stderr, "hash.c:hash_file_contents():madvise(%s): %s", name,
+		strerror(errno));
     }
 
     char pre[32];
@@ -83,7 +85,8 @@ hash_file_contents(char *name, size_t sz)
 
     hash = malloc(SHA1_OUTPUT_LEN);
     if (hash == NULL) {
-	error(0, errno, "malloc output on `%s'", name);
+	fprintf(stderr, "hash.c:hash_file_contents():malloc(%s): %s", name,
+		strerror(errno));
 	return NULL;
     }
 
@@ -104,7 +107,9 @@ hash_file_contents(char *name, size_t sz)
     close(fd);
 
     if (munmap(buf, sz) < 0) {
-	error(EXIT_FAILURE, errno, "unmapping `%s'", name);
+	fprintf(stderr, "hash.c:hash_file_contents():munmap(%s): %s", name,
+		strerror(errno));
+	exit(EXIT_FAILURE);
     }
 
     return hash;
@@ -116,7 +121,8 @@ get_file_hash(char *fname)
     struct stat fstat;
 
     if (stat(fname, &fstat)) {
-	error(0, errno, "getting info on `%s'", fname);
+	fprintf(stderr, "hash.c:get_file_hash():stat(%s): %s", fname,
+		strerror(errno));
 	return NULL;
     }
     if (S_ISREG(fstat.st_mode) || S_ISLNK(fstat.st_mode)) {
