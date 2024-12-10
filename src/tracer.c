@@ -340,39 +340,45 @@ handle_execve(pid_t pid, PROCESS_INFO *pi, int dirfd, char *path)
 static void
 handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
-    char *abspath = absolutepath(pid, olddirfd, oldpath);
-    char *hash = get_file_hash(abspath);
-
-    FILE_INFO *f = find_finfo(abspath, hash);
-
-    if (!f) {
-	f = next_finfo();
-	finfo_new(f, oldpath, abspath, hash);
-	record_file(f->outname, oldpath, abspath);
-	record_hash(f->outname, f->hash);
-    } else {
-	free(oldpath);
-	free(abspath);
-	free(hash);
-    }
-
-    pi->entry_info = (void *) (f - finfo);
-    if (pi->entry_info == NULL)
-	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
+    pi->entry_info = absolutepath(pid, olddirfd, oldpath);
+    free(oldpath);
 }
 
 static void
-handle_rename_exit(pid_t pid, PROCESS_INFO *pi, int newdirfd, char *newpath)
+handle_rename_exit(pid_t pid, PROCESS_INFO *pi, char *oldpath, int newdirfd,
+		   char *newpath)
 {
-    FILE_INFO *from = finfo + (ptrdiff_t) pi->entry_info;
+    char *oldabspath = pi->entry_info;
+    char *newabspath = absolutepath(pid, newdirfd, newpath);
 
-    char *abspath = absolutepath(pid, newdirfd, newpath);
+    char *hash = get_file_hash(newabspath);
 
-    FILE_INFO *to = next_finfo();
+    FILE_INFO *from = find_finfo(oldabspath, hash);
 
-    finfo_new(to, newpath, abspath, from->hash);
-    record_file(to->outname, newpath, abspath);
-    record_hash(to->outname, to->hash);
+    if (!from) {
+	from = next_finfo();
+	finfo_new(from, oldpath, oldabspath, hash);
+	record_file(from->outname, oldpath, oldabspath);
+	record_hash(from->outname, hash);
+    } else {
+	free(oldpath);
+	free(oldabspath);
+    }
+
+    FILE_INFO *to = find_finfo(newabspath, hash);
+
+    if (!to) {
+	to = next_finfo();
+	finfo_new(to, newpath, newabspath, hash);
+	record_file(to->outname, newpath, newabspath);
+	record_hash(to->outname, hash);
+    } else {
+	free(newpath);
+	free(newabspath);
+	if (from->hash != hash) {
+	    free(hash);
+	}
+    }
 
     record_rename(pi->outname, from->outname, to->outname);
 }
@@ -452,6 +458,7 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
     int flags;
     int dirfd;
     FILE_INFO *f;
+    char *oldpath;
     int newdirfd;
     char *newpath;
 
@@ -537,29 +544,32 @@ handle_syscall_exit(pid_t pid, PROCESS_INFO *pi,
 #ifdef HAVE_SYS_RENAME
 	case SYS_rename:
 	    // int rename(const char *oldpath, const char *newpath);
+	    oldpath = get_str_from_process(pid, (void *) entry->entry.args[0]);
 	    newpath = get_str_from_process(pid, (void *) entry->entry.args[1]);
 
-	    handle_rename_exit(pid, pi, AT_FDCWD, newpath);
+	    handle_rename_exit(pid, pi, oldpath, AT_FDCWD, newpath);
 	    break;
 #endif
 #ifdef HAVE_SYS_RENAMEAT
 	case SYS_renameat:
 	    // int renameat(int olddirfd, const char *oldpath, int newdirfd,
 	    // const char *newpath);
+	    oldpath = get_str_from_process(pid, (void *) entry->entry.args[1]);
 	    newdirfd = entry->entry.args[2];
 	    newpath = get_str_from_process(pid, (void *) entry->entry.args[3]);
 
-	    handle_rename_exit(pid, pi, newdirfd, newpath);
+	    handle_rename_exit(pid, pi, oldpath, newdirfd, newpath);
 	    break;
 #endif
 #ifdef HAVE_SYS_RENAMEAT2
 	case SYS_renameat2:
 	    // int renameat2(int olddirfd, const char *oldpath, int newdirfd,
 	    // const char *newpath, unsigned int flags);
+	    oldpath = get_str_from_process(pid, (void *) entry->entry.args[1]);
 	    newdirfd = entry->entry.args[2];
 	    newpath = get_str_from_process(pid, (void *) entry->entry.args[3]);
 
-	    handle_rename_exit(pid, pi, newdirfd, newpath);
+	    handle_rename_exit(pid, pi, oldpath, newdirfd, newpath);
 	    break;
 #endif
 #ifdef HAVE_SYS_FORK
