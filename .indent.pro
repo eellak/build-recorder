@@ -88,4 +88,6 @@
 /* project-specific types */
 -TFILE_INFO
 -TPROCESS_INFO
+-Tpackaged_task
+-Tthreadpool
 

@@ -10,6 +10,7 @@ __top_builddir__build_recorder_SOURCES = \
 	record.c \
 	schema.c \
 	tracer.c \
+	threadpool.c \
 	$(EMPTY)
 
 dist_noinst_HEADERS = *.h
