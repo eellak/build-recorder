@@ -7,7 +7,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 #include "config.h"
 
-#include <error.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +20,10 @@ void run_and_record_fnames(char **av, char **envp);
 int
 main(int argc, char **argv, char **envp)
 {
-    if (argc < 2)
-	error(EX_USAGE, 0, "missing command to record");
+    if (argc < 2) {
+	fprintf(stderr, "main.c:main(): Missing command to record");
+	exit(EX_USAGE);
+    }
 
     char *output_fname = "build-recorder.out";
 

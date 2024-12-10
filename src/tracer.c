@@ -8,7 +8,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 #include	"config.h"
 
 #include	<errno.h>
-#include	<error.h>
 #include	<stdlib.h>
 #include	<stdio.h>
 #include	<stddef.h>
@@ -70,12 +69,16 @@ next_pinfo(pid_t pid)
     if (numpinfo == pinfo_size - 1) {
 	pinfo_size *= 2;
 	pinfo = reallocarray(pinfo, pinfo_size, sizeof (PROCESS_INFO));
-	if (pinfo == NULL)
-	    error(EXIT_FAILURE, errno, "reallocating process info array");
+	if (pinfo == NULL) {
+	    perror("tracer.c:next_pinfo:reallocarray(pinfo)");
+	    exit(EXIT_FAILURE);
+	}
 
 	pids = reallocarray(pids, pinfo_size, sizeof (int));
-	if (pids == NULL)
-	    error(EXIT_FAILURE, errno, "reallocating pids array");
+	if (pids == NULL) {
+	    perror("tracer.c:next_pinfo:reallocarray(pids)");
+	    exit(EXIT_FAILURE);
+	}
     }
 
     pids[numpinfo + 1] = pid;
@@ -88,8 +91,10 @@ next_finfo(void)
     if (numfinfo == finfo_size - 1) {
 	finfo_size *= 2;
 	finfo = reallocarray(finfo, finfo_size, sizeof (FILE_INFO));
-	if (finfo == NULL)
-	    error(EXIT_FAILURE, errno, "reallocating file info array");
+	if (finfo == NULL) {
+	    perror("tracer.c:next_finfo:reallocarray(finfo)");
+	    exit(EXIT_FAILURE);
+	}
     }
 
     return finfo + (++numfinfo);
@@ -184,8 +189,10 @@ pinfo_next_finfo(PROCESS_INFO *self, int fd)
 		reallocarray(self->finfo, self->finfo_size, sizeof (FILE_INFO));
 	self->fds =
 		reallocarray(self->fds, self->finfo_size, sizeof (FILE_INFO));
-	if (self->finfo == NULL)
-	    error(EXIT_FAILURE, errno, "reallocating file info array");
+	if (self->finfo == NULL) {
+	    perror("tracer.c:pinfo_next_finfo:reallocarray(pinfo->finfo)");
+	    exit(EXIT_FAILURE);
+	}
     }
 
     self->fds[self->numfinfo + 1] = fd;
@@ -254,7 +261,9 @@ find_in_path(char *path)
 	sprintf(buf, "%s/%s", it, path);
 	ret = realpath(buf, NULL);
 	if (!ret && (errno != 0 && errno != ENOENT)) {
-	    error(EXIT_FAILURE, errno, "on find_in_path realpath");
+	    fprintf(stderr, "tracer.c:find_in_path:realpath(%s): %s\n", path,
+		    strerror(errno));
+	    exit(EXIT_FAILURE);
 	}
 	it = last + 1;
     } while (last != NULL && ret == NULL);
@@ -271,8 +280,11 @@ handle_open(pid_t pid, PROCESS_INFO *pi, int fd, int dirfd, void *path,
     path = get_str_from_process(pid, path);
     char *abspath = absolutepath(pid, dirfd, path);
 
-    if (abspath == NULL)
-	error(EXIT_FAILURE, errno, "on handle_open absolutepath");
+    if (abspath == NULL) {
+	fprintf(stderr, "tracer.c:handle_open:absolutepath(%s): %s\n", path,
+		strerror(errno));
+	exit(EXIT_FAILURE);
+    }
 
     FILE_INFO *f = NULL;
 
@@ -308,13 +320,17 @@ handle_execve(pid_t pid, PROCESS_INFO *pi, int dirfd, char *path)
 
     if (!abspath) {
 	if (errno != ENOENT) {
-	    error(EXIT_FAILURE, errno, "on handle_execve absolutepath");
+	    fprintf(stderr, "tracer.c:handle_execve:absolutepath(%s): %s\n",
+		    path, strerror(errno));
+	    exit(EXIT_FAILURE);
 	}
 
 	abspath = find_in_path(path);
 
 	if (!abspath) {
-	    error(EXIT_FAILURE, errno, "on handle_execve find_in_path");
+	    fprintf(stderr, "tracer.c:handle_execve:find_in_path(%s): %s\n",
+		    path, strerror(errno));
+	    exit(EXIT_FAILURE);
 	}
     }
 
@@ -357,8 +373,10 @@ handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
     }
 
     pi->entry_info = (void *) (f - finfo);
-    if (pi->entry_info == NULL)
-	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
+    if (pi->entry_info == NULL) {
+	fprintf(stderr, "tracer.c:handle_rename_entry(%s)", f->path);
+	exit(EXIT_FAILURE);
+    }
 }
 
 static void
@@ -598,14 +616,16 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 
     // Starting tracee
     if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) < 0) {
-	error(EXIT_FAILURE, errno, "tracee PTRACE_SYSCALL failed");
+	perror("tracer.c:tracer_main():ptrace(tracee PTRACE_SYSCALL)");
+	exit(EXIT_FAILURE);
     }
 
     while (running) {
 	pid = wait(&status);
 
 	if (pid < 0) {
-	    error(EXIT_FAILURE, errno, "wait failed");
+	    perror("tracer.c:tracer_main():wait()");
+	    exit(EXIT_FAILURE);
 	}
 
 	unsigned int restart_sig = 0;
@@ -615,14 +635,16 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 		case SIGTRAP | 0x80:
 		    process_state = find_pinfo(pid);
 		    if (!process_state) {
-			error(EXIT_FAILURE, 0, "find_pinfo on syscall sigtrap");
+			fprintf(stderr,
+				"tracer.c:tracer_main():find_pinfo() on syscall sigtrap\n");
+			exit(EXIT_FAILURE);
 		    }
 
 		    if (ptrace
 			(PTRACE_GET_SYSCALL_INFO, pid, (void *) sizeof (info),
 			 &info) < 0) {
-			error(EXIT_FAILURE, errno,
-			      "tracee PTRACE_GET_SYSCALL_INFO failed");
+			perror("tracer.c:tracer_main():ptrace(PTRACE_GET_SYSCALL_INFO)");
+			exit(EXIT_FAILURE);
 		    }
 
 		    switch (info.op) {
@@ -637,8 +659,10 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 						info.exit.rval);
 			    break;
 			default:
-			    error(EXIT_FAILURE, errno,
-				  "expected PTRACE_SYSCALL_INFO_ENTRY or PTRACE_SYSCALL_INFO_EXIT\n");
+			    fprintf(stderr,
+				    "tracer.c:tracer_main():WSTOPSIG(%d) expected PTRACE_SYSCALL_INFO_ENTRY or PTRACE_SYSCALL_INFOO_EXIT: %s",
+				    WSTOPSIG(status), strerror(errno));
+			    exit(EXIT_FAILURE);
 		    }
 
 		    break;
@@ -669,14 +693,17 @@ tracer_main(pid_t pid, PROCESS_INFO *pi, char *path, char **envp)
 
 	    // Restarting process 
 	    if (ptrace(PTRACE_SYSCALL, pid, NULL, restart_sig) < 0) {
-		error(EXIT_FAILURE, errno, "failed restarting process");
+		perror("tracer.c:tracer_main():ptrace(): failed restarting process");
+		exit(EXIT_FAILURE);
 	    }
 	} else if (WIFEXITED(status)) {	// child process exited 
 	    --running;
 
 	    process_state = find_pinfo(pid);
 	    if (!process_state) {
-		error(EXIT_FAILURE, 0, "find_pinfo on WIFEXITED");
+		fprintf(stderr,
+			"tracer.c:tracer_main():find_pinfo on WIFEXITED\n");
+		exit(EXIT_FAILURE);
 	    }
 
 	    record_process_end(process_state->outname);
@@ -713,7 +740,8 @@ run_tracee(char **av)
 {
     ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
     execvp(*av, av);
-    error(EXIT_FAILURE, errno, "after child exec()");
+    perror("tracer.c:run_tracee():execvp(): after child exec()");
+    exit(EXIT_FAILURE);
 }
 
 void
@@ -722,9 +750,10 @@ run_and_record_fnames(char **av, char **envp)
     pid_t pid;
 
     pid = fork();
-    if (pid < 0)
-	error(EXIT_FAILURE, errno, "in original fork()");
-    else if (pid == 0)
+    if (pid < 0) {
+	perror("tracer.c:run_and_record_fnames(): in original fork()");
+	exit(EXIT_FAILURE);
+    } else if (pid == 0)
 	run_tracee(av);
 
     init();
