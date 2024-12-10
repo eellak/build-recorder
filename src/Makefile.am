@@ -2,9 +2,9 @@
 # Copyright (C) 2023 Fotios Valasiadis
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-bin_PROGRAMS = build-recorder
+bin_PROGRAMS = $(top_builddir)/build-recorder
 
-build_recorder_SOURCES = \
+__top_builddir__build_recorder_SOURCES = \
 	hash.c \
 	main.c \
 	record.c \
