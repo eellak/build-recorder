@@ -56,11 +56,20 @@ init(void)
 {
     pinfo_size = DEFAULT_PINFO_SIZE;
     pinfo = calloc(pinfo_size, sizeof (PROCESS_INFO));
+    if (pinfo == NULL) {
+	error(EXIT_FAILURE, errno, "on init pinfo calloc");
+    }
     pids = malloc(pinfo_size * sizeof (int));
+    if (pids == NULL) {
+	error(EXIT_FAILURE, errno, "on init pids malloc");
+    }
     numpinfo = -1;
 
     finfo_size = DEFAULT_FINFO_SIZE;
     finfo = calloc(finfo_size, sizeof (FILE_INFO));
+    if (finfo == NULL) {
+	error(EXIT_FAILURE, errno, "on init finfo calloc");
+    }
     numfinfo = -1;
 }
 
@@ -104,7 +113,13 @@ pinfo_new(PROCESS_INFO *self, char ignore_one_sigstop)
     self->finfo_size = DEFAULT_FINFO_SIZE;
     self->numfinfo = -1;
     self->finfo = malloc(self->finfo_size * sizeof (FILE_INFO));
+    if (self->finfo == NULL) {
+	error(EXIT_FAILURE, errno, "on pinfo_new self->finfo malloc");
+    }
     self->fds = malloc(self->finfo_size * sizeof (int));
+    if (self->fds == NULL) {
+	error(EXIT_FAILURE, errno, "on pinfo_new self->fds malloc");
+    }
     self->ignore_one_sigstop = ignore_one_sigstop;
 }
 
@@ -205,9 +220,13 @@ get_str_from_process(pid_t pid, void *addr)
     size_t i = 0;
 
     do {
+	errno = 0;
 	data.lval =
 		ptrace(PTRACE_PEEKDATA, pid, (char *) addr + i * sizeof (long),
 		       NULL);
+	if (errno != 0) {
+	    error(EXIT_FAILURE, errno, "on get_str_from_process ptrace");
+	}
 	for (unsigned j = 0; j < sizeof (long); j++) {
 	    *dest++ = data.cval[j];
 	    if (data.cval[j] == 0)
@@ -341,6 +360,10 @@ static void
 handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 {
     char *abspath = absolutepath(pid, olddirfd, oldpath);
+
+    if (abspath == NULL) {
+	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
+    }
     char *hash = get_file_hash(abspath);
 
     FILE_INFO *f = find_finfo(abspath, hash);
@@ -358,7 +381,7 @@ handle_rename_entry(pid_t pid, PROCESS_INFO *pi, int olddirfd, char *oldpath)
 
     pi->entry_info = (void *) (f - finfo);
     if (pi->entry_info == NULL)
-	error(EXIT_FAILURE, errno, "on handle_rename_entry absolutepath");
+	error(EXIT_FAILURE, errno, "on handle_rename_entry entry_info");
 }
 
 static void
@@ -367,6 +390,10 @@ handle_rename_exit(pid_t pid, PROCESS_INFO *pi, int newdirfd, char *newpath)
     FILE_INFO *from = finfo + (ptrdiff_t) pi->entry_info;
 
     char *abspath = absolutepath(pid, newdirfd, newpath);
+
+    if (abspath == NULL) {
+	error(EXIT_FAILURE, errno, "on handle_rename_exit absolutepath");
+    }
 
     FILE_INFO *to = next_finfo();
 
